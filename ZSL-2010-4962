@@ -1,0 +1,84 @@
+
+Title:
+
+ MySource Matrix 3.28.3 (height) Remote Reflected XSS Vulnerability
+
+
+
+
+Vendor:
+
+ Squiz Pty Ltd. - http://www.squiz.net
+                  http://www.matrix.squiz.net/
+
+Summary:
+
+ MySource Matrix is a powerful Open Source Content Management System
+ (CMS) written in PHP and is suitable for many types of organisations.
+
+
+Description:
+
+ Input passed via the "height" parameter to char_map.php is not properly
+ sanitised before being returned to the user. This can be exploited to execute
+ arbitrary HTML and script code in a user's browser session in context of an
+ affected site.
+
+
+Tested on:
+
+ MS WinXP Pro SP3 (EN)
+ PHP 5.3.0
+ MySQL 5.1.36
+ Apache 2.2.11 (Win32)
+
+
+Version affected:
+
+ 3.28.3
+
+
+Vulnerable lines:
+
+ 182: // <?php echo $_REQUEST['width'];?>;
+ 183: // <?php echo $_REQUEST['height'];?>;
+
+
+Solution:
+
+ Existing users can remove the two commented out lines from:
+/path/to/matrix/fudge/wysiwyg/plugins/special_chars/char_map.php (lines 182 and 183)
+
+
+Vendor status:
+
+ [05.09.2010] Vulnerability discovered.
+ [06.09.2010] Vendor contacted.
+ [06.09.2010] Vendor replied asking details.
+ [06.09.2010] Sent analysis report to vendor.
+ [06.09.2010] Vendor verifies vulnerability.
+ [06.09.2010] Vendor releases fix versions 3.26.8 and 3.28.4.
+ [06.09.2010] Public advisory released.
+
+
+Vulnerability discovered by:
+
+ Gjoko 'LiquidWorm' Krstic
+ liquidworm gmail com
+ http://www.zeroscience.mk
+
+
+Zero Science Lab Advisory ID:
+
+ ZSL-2010-4962
+
+
+Advisory URL:
+
+ http://www.zeroscience.mk/en/vulnerabilities/ZSL-2010-4962.php
+
+
+
+PoC:
+
+ http://200.200.200.200/fudge/wysiwyg/plugins/special_chars/char_map.php?width=233%3C/script%3E&height=233%3Cscript%3Ealert%28%27zsl%27%29%3C%2fscript%3E
