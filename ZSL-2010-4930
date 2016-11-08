@@ -1,0 +1,72 @@
+
+J. River Media Jukebox 12 MP3 File Handling Remote Heap Overflow PoC
+
+
+Summary: Media Jukebox 12 is a media player application for playing various media
+         files on a Windows machine.
+
+Desc: Media Jukebox 12 suffers from a heap overflow vulnerability when processing
+      .mp3 files and its metadata (ID3 tags). When a malicious .mp3 file is played
+      the application pops out an error message and crashes. The ECX register gets
+      overwritten allowing the attacker the possibility of system access remotely
+      or localy.
+
+Product web page: http://www.mediajukebox.com
+
+Vendor: J.River, Inc.
+
+Tested on: Microsoft Windows Professional XP SP3 (English)
+
+Version tested: 12.0.49
+
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+
+gjoko ! zeroscience ! mk
+
+Zero Science Lab - http://www.zeroscience.mk
+
+Advisory: http://zeroscience.mk/en/vulnerabilities/ZSL-2010-4930.php
+
+Vulnerability discovered on: 28.02.1010
+
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-windbg-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+
+(8c0.858): Access violation - code c0000005 (first chance)
+First chance exceptions are reported before any exception handling.
+This exception may be expected and handled.
+eax=00000041 ebx=03643868 ecx=0b1d6000 edx=0b2e7d5c esi=00000000 edi=0b323468
+eip=0ae2545f esp=0012dc80 ebp=0012dda0 iopl=0         nv up ei pl nz na pe nc
+cs=001b  ss=0023  ds=0023  es=0023  fs=003b  gs=0000             efl=00010206
+in_mp3!GetFileInfo+0x3bfcf:
+0ae2545f 668901          mov     word ptr [ecx],ax        ds:0023:0b1d6000=????
+0:000> g
+Heap corruption detected at 0B1D5018
+(8c0.858): Access violation - code c0000005 (first chance)
+First chance exceptions are reported before any exception handling.
+This exception may be expected and handled.
+eax=0b1d3008 ebx=06f40178 ecx=41414141 edx=8b5f0000 esi=0b1d3000 edi=06f40000
+eip=7c9108d3 esp=0012d1d8 ebp=0012d294 iopl=0         nv up ei pl nz na po cy
+cs=001b  ss=0023  ds=0023  es=0023  fs=003b  gs=0000             efl=00010203
+ntdll!wcsncpy+0x374:
+7c9108d3 8902            mov     dword ptr [edx],eax  ds:0023:8b5f0000=????????
+
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-windbg-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+
+PoC:
+
+	 http://www.zeroscience.mk/codes/aimp2_evil.mp3
+[mirror] http://milw0rm.com/sploits/2009-aimp2_evil.mp3
+[mirror] http://securityreason.com/download/11/13
+
+
+Note: Same old PoC code used in: AIMP, Mp3 Tag Assistant, Audio Editor Pro,
+      Zortam ID3 Tag Editor, Zortam MP3 Media Studio, Zortam Media Player,
+      Music Tag Editor, BS.Player, VLC Player, etc ;).
+
+//EOF
