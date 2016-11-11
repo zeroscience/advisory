@@ -1,0 +1,43 @@
+
+Atlassian JIRA v6.0.3 Arbitrary HTML/Script Execution Vulnerability
+
+
+Vendor: Atlassian Corporation Pty Ltd.
+Product web page: https://www.atlassian.com
+Affected version: 6.0.3 and 6.0.2
+
+Summary: JIRA is an issue tracking project management software
+for teams planning, building, and launching great products.
+
+Desc: JIRA suffers from a reflected XSS issue due to a failure
+to properly sanitize user-supplied input to the 'name' GET parameter
+in the 'deleteuserconfirm.jsp' script. Attackers can exploit this
+weakness to execute arbitrary HTML and script code in a user's browser
+session.
+
+Vulnerable JSP script location:
+- jira-components/jira-webapp/src/main/webapp/secure/admin/user/views/deleteuserconfirm.jsp
+
+
+Tested on: Microsoft Windows 7 Ultimate SP1 (EN)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2013-5151
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2013-5151.php
+
+Vendor: https://jira.atlassian.com/browse/JRA-34160
+        https://jira.atlassian.com/browse/JRA/fixforversion/33790
+        https://jira.atlassian.com/browse/JRA/fixforversion/34310
+
+
+
+25.06.2013
+
+--
+
+
+ http://localhost:8080/secure/admin/user/DeleteUser!default.jspa?name=a"><script>alert(document.cookie);</script>&returnUrl=UserBrowser.jspa
