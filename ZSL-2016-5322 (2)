@@ -1,0 +1,89 @@
+[Discussion]
+
+- Bikramaditya Guha advises about the following vulnerability(ies):
+
+
+[Software]
+
+- Jobscript
+
+
+[Vendor Product Description]
+
+- JobScript is inbuilt structured website was developed in PHP and MySQL database. It's a complete job script 
+for those who wants to start a professional job portal website like naukri.com, monster.com, clickjobs.com or 
+any such major job portals. Jobscript was designed and developed with the following features like control panel 
+for Employer's and also for Job Seeker's, email alerts, job search, online resume, payment and membership plans. 
+
+
+- Site: http://www.jobscript.in/index.html
+
+
+[Advisory Timeline]
+
+- 31/03/2016 -> Vulnerability discovered;
+- 31/03/2016 -> First Contact to Vendor;
+- 01/04/2016 -> Follow up with vendor over a chat
+- 22/05/2016 -> Advisory Published
+
+
+[Bug Summary]
+
+- File Upload Filter Bypass Remote PHP Code Execution
+
+- Open Redirection
+
+
+[Impact]
+
+- High
+
+
+[Affected Version]
+
+- N/A
+
+
+[Bug Description and Proof of Concept]
+
+- Jobscript suffers from an authenticated arbitrary PHP code execution vulnerability. The vulnerability is caused 
+due to the improper verification of uploaded files in '/jobmoster/wp-admin/admin-ajax.php' script thru the 'name' 
+and 'file' POST parameters. This can be exploited to execute arbitrary PHP code by uploading a malicious PHP script 
+file with '.php' extension that will be stored in '/jobmoster/wp-content/uploads/jobmonster/' directory.
+
+- Input passed via the 'redirect_to' POST parameter in '/jobmoster/wp-admin/admin-ajax.php' is not properly verified 
+before being used to redirect users. This can be exploited to redirect a user to an arbitrary website e.g. when a user 
+clicks a specially crafted link to the affected script hosted on a trusted domain.
+
+
+[Advisory details]
+
+- ID: ZSL-2016-5322
+- URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5322.php
+
+
+Proof-of-Concept
+
+1. File Upload Filter Bypass Remote PHP Code Execution:
+
+Parameters:
+name, file (POST)
+
+Vulnerable URL:
+http://localhost/jobmoster/wp-admin/admin-ajax.php?action=noo_plupload&nonce=1ec9cec74f
+
+Payload:
+http://localhost/jobmoster/wp-content/uploads/jobmonster/RCE.php?cmd=uname%20-a
+
+2. Open Redirection
+
+http://localhost/jobmoster/wp-admin/admin-ajax.php
+Parameter: redirect_to (POST)
+
+Payload(s):
+action=noo_ajax_login&log=test1&pwd=123456&remember=true&security=53ea46808e&redirect_to=http%3A%2F%2Fgoogle.com%2F
+
+
+All flaws described here were discovered and researched by:
+
+Bikramaditya Guha aka "PhoenixX"
