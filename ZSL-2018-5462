@@ -1,0 +1,53 @@
+
+Teradek VidiU Pro 3.0.3 (snapshot.cgi) Stream Disclosure
+
+
+Vendor: Teradek, LLC
+Product web page: https://www.teradek.com
+Affected version: VidiU, VidiU Mini, VidiU Pro
+                  3.0.3r32136
+                  3.0.2r31225
+                  2.4.10
+
+Summary: The Teradek VidiU gives you the freedom to broadcast live
+high definition video directly to the Web without a PC. Whether you're
+streaming out of a video switcher or wirelessly from your camera,
+VidiU allows you to go live when you want, where you want. VidiU
+offers API level integration with the Ustream, YouTube Live and
+Livestream platforms, which makes streaming to your channel as
+easy as logging into your account.
+
+Desc: VidiU suffers from an unauthenticated and unauthorized live
+stream disclosure when snapshot.cgi script is called.
+
+-------------------------------------------------------------------
+When snapshot.cgi gets called, new snapshot.jpg is created:
+
+/tmp/jpeg
+/tmp/jpeg/snapshot.tmp
+/tmp/jpeg/snapshot.jpg
+%ld byte snapshot received and saved at %s
+{"result":"success","size":%ld,"file":"%s"}
+/home/www/snapshot.jpg
+/snapshot.jpg?_=%d
+-------------------------------------------------------------------
+
+Tested on: lighttpd/1.4.48
+           lighttpd/1.4.31
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2018-5462
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5462.php
+
+
+02.03.2018
+
+--
+
+
+http://127.0.0.1:8089/cgi-bin/snapshot.cgi  <-- Generate new and view (redirects to /snapshot.jpg)
+http://127.0.0.1:8089/snapshot.jpg          <-- View stored
