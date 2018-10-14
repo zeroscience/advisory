@@ -1,0 +1,64 @@
+
+FLIR Systems FLIR AX8 Thermal Camera 1.32.16 Hard-coded Credentials Shell Access
+
+
+Vendor: FLIR Systems, Inc.
+Product web page: https://www.flir.com
+Affected version: Firmware: 1.32.16
+                            1.17.13
+                  OS: neco_v1.8-0-g7ffe5b3
+                  Hardware: Flir Systems Neco Board
+
+Summary: Thermal Imaging Camera For Continuous Condition and Safety
+Monitoring FLIR AX8 is a thermal sensor with imaging capabilities.
+Combining thermal and visual cameras in a small, affordable package,
+the AX8 provides continuous temperature monitoring and alarming capabilities
+to protec critical electrical and mechanical equipment. The AX8 helps
+you guard against unplanned outages, service interruptions, and equipment
+failure. 
+
+The FLIR AX series camera/sensor also has built-in support to connect to
+industrial control equipment such as programmable logic controllers (PLCs),
+and allows the sharing of analysis and alarm results and simple control
+using the Ethernet/IP and Modbus TCP field bus protocols. Compact and easy
+to install, the AX8 provides continuous monitoring of electrical cabinets,
+process and manufacturing areas, data centers, energy generation and distribution,
+transportation and mass transit, storage facilities and refrigeration warehouses.
+
+Desc: The devices utilizes hard-coded and credentials within its Linux distribution
+image. These sets of credentials (SSH) are never exposed to the end-user and cannot
+be changed through any normal operation of the camera. Attacker could exploit this
+vulnerability by logging in using the default credentials for the web panel or gain
+shell access.
+
+Tested on: GNU/Linux 3.0.35-flir+gfd883a0 (armv7l)
+           lighttpd/1.4.33
+           PHP/5.4.14
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2018-5494
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5494.php
+
+
+26.07.2018
+
+--
+
+
+Default web creds:
+------------------
+admin:admin
+user:user
+viewer:viewer
+service:???
+developer:???
+
+
+Hard-coded SSH access:
+----------------------
+fliruser:3vlig
+root:hello
