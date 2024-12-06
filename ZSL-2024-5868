@@ -5,7 +5,7 @@ ABB Cylon Aspect 3.08.02 (fileSystemUpdateExecute.php) Remote Code Execution
 Vendor: ABB Ltd.
 Product web page: https://www.global.abb
 Affected version: NEXUS Series, MATRIX-2 Series, ASPECT-Enterprise, ASPECT-Studio
-                  Firmware: <=3.08.00
+                  Firmware: <=3.08.02
 
 Summary: ASPECT is an award-winning scalable building energy management
 and control solution designed to allow users seamless access to their
