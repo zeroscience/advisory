@@ -1,0 +1,46 @@
+
+Securimage 3.5 URI-based Cross-Site Scripting Vulnerability
+
+
+Vendor: Securimage PHP CAPTCHA
+Product web page: http://www.phpcaptcha.org
+Affected version: 3.5
+
+Summary: Securimage is an open-source free PHP CAPTCHA
+script for generating complex images and CAPTCHA codes
+to protect forms from spam and abuse.
+
+Desc: Securimage suffers from a XSS issue in 'example_form.php'
+that uses the 'REQUEST_URI' variable. The vulnerability is
+present because there isn't any filtering to the mentioned
+variable in the affected script. Attackers can exploit this
+weakness to execute arbitrary HTML and script code in a user's
+browser session.
+
+---------------------------------------------------------------
+/example_form.php:
+------------------
+
+47: <form method="post" action="<?php echo $_SERVER['REQUEST_URI'] . $_SERVER['QUERY_STRING'] ?>" id="contact_form">
+
+---------------------------------------------------------------
+
+
+Tested on: Apache, PHP 5.3.6
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+
+Advisory ID: ZSL-2013-5139
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2013-5139.php
+
+
+21.04.2013
+
+--
+
+
+http://localhost/securimage/example_form.php/"/><script>alert(document.cookie)</script>
