@@ -23,6 +23,7 @@ This repository serves as a centralized resource for security advisories, vulner
 ## Repository Structure
 The repository is organized by year, with each year containing entries in the `ZSL-YEAR-XXXX` format. Each entry can be an advisory, exploit code, or PoC code. For example:
 
+```
 advisory/
 ├── 2008/
 │ ├── ZSL-2008-4891/
@@ -37,7 +38,7 @@ advisory/
 │ ├── ZSL-2010-4896/
 │ └── ...
 └── ...
-
+```
 
 Each `ZSL-YEAR-XXXX` directory may contain:
 - **Advisory Details**: A description of the vulnerability, including affected systems, CVSS scores, and mitigation strategies.
