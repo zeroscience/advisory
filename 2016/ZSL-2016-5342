@@ -1,0 +1,44 @@
+
+Wowza Streaming Engine 4.5.0 Cleartext Storage Of Sensitive Information
+
+
+Vendor: Wowza Media Systems, LLC.
+Product web page: https://www.wowza.com
+Affected version: 4.5.0 (build 18676)
+
+Summary: Wowza Streaming Engine is robust, customizable, and scalable
+server software that powers reliable video and audio streaming to any
+device. Learn the benefits of using Wowza Streaming Engine to deliver
+high-quality live and on-demand video content to any device.
+
+Desc: The application stores sensitive information in cleartext within
+a resource that might be accessible to another control sphere. When the
+file is modified it is automatically applied into the application with
+newly created user account. Wowza stores sensitive information such as
+username and password in cleartext in admin.password file, which is readable
+by local users.
+
+Tested on: Microsoft Windows 7 Ultimate SP1 (EN)
+           Winstone Servlet Engine v1.0.5
+           Servlet/2.5 (Winstone/1.0.5)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2016-5342
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5342.php
+
+
+03.07.2016
+
+--
+
+
+C:\>type "C:\Program Files (x86)\Wowza Media Systems\Wowza Streaming Engine 4.5.0\conf\admin.password"
+# Admin password file (format [username][space][password][space][group])
+# username password group|group
+admin admin admin
+beebee pass1234 admin|advUser
+test 123123 admin|advUser
