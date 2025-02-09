@@ -1,0 +1,52 @@
+
+dbaudio R1 v2.14.4 DNS-SD Service Unquoted Service Path Privilege Escalation
+
+Vendor: d&b audiotechnik GmbH
+Product web page: http://www.dbaudio.com
+Affected version: R1 2.14.4 and DNS-SD 379.32.2
+
+Summary: The R1 Remote control software succeeds the d&b ROPE C software.
+It is a software package designed to operate d&b amplifiers (D12, D6, E-PAC
+with Display) remotely using the d&b Remote network based on CAN-Bus technology.
+
+Desc: The application suffers from an unquoted search path issue impacting
+the service 'dbaudio DNS-SD' for Windows deployed as part of dbaudio R1. This
+could potentially allow an authorized but non-privileged local user to execute
+arbitrary code with elevated privileges on the system. A successful attempt
+would require the local user to be able to insert their code in the system
+root path undetected by the OS or other security applications where it could
+potentially be executed during application startup or reboot. If successful,
+the local user’s code would execute with the elevated privileges of the application.
+
+Tested on: Microsoft Windows 7 Ultimate SP1 (EN)
+           Microsoft Windows 7 Professional SP1 (EN)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2016-5293
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5293.php
+
+
+01.12.2015
+
+--
+
+
+C:\windows\system32>sc qc "dbaudio DNS-SD Service"
+[SC] QueryServiceConfig SUCCESS
+
+SERVICE_NAME: dbaudio DNS-SD Service
+        TYPE               : 20  WIN32_SHARE_PROCESS
+        START_TYPE         : 2   AUTO_START
+        ERROR_CONTROL      : 1   NORMAL
+        BINARY_PATH_NAME   : C:\Program Files (x86)\dbaudio\DNS-SD Service\mDNSResponder.exe
+        LOAD_ORDER_GROUP   :
+        TAG                : 0
+        DISPLAY_NAME       : dbaudio DNS-SD Service
+        DEPENDENCIES       : Tcpip
+        SERVICE_START_NAME : LocalSystem
+
+C:\windows\system32>
