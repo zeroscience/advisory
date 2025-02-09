@@ -1,0 +1,52 @@
+
+Peplink NGxxx/LCxxx VPN-Firewall Open Redirect Vulnerability
+
+
+Vendor: Qingdao Xunbo Information Technology Co., Ltd.
+Product web page: http://www.peplink.net
+Affected version: PEPLINK NG300 VPN-Firewall
+                  PEPLINK NG320-VPN-Firewall
+                  PEPLINK NG500-VPN-Firewall
+                  PEPLINK NG520-VPN-Firewall
+                  PEPLINK LC500-VPN-Firewall
+
+Summary: The NG500 / 520 is a high-performance VPN server, which is suitable
+for small and medium enterprises to use as a VPN center. It is simple to deploy
+and high security. At the same time, NG500 / 520 products also integrates advanced
+firewall features to support access to computers by group, by region, according to
+the strategy, according to rules management; support office network and business
+network isolation to ensure data server security. At the same time, NG500 / NG520
+support intelligent flow control function, can reserve bandwidth for VPN, to ensure
+the fluency of critical applications, to prevent network congestion. 
+
+The NG300 / 320 products are cost-effective VPN branch gateway products, support to
+drive the entire LAN access to the headquarters network to support LAN TO LAN interconnection.
+NG300 / 320 integrated online behavior management function, you can achieve P2P, QQ,
+MSN and other application control and site filtering and other functions, support QoS
+traffic priority control technology, VPN applications can reserve bandwidth to ensure
+the stability of remote enterprise data transmission.
+
+Desc: Input passed via the '_redirect' GET parameter via 'service.cgi' script is not
+properly verified before being used to redirect users. This can be exploited to redirect
+a user to an arbitrary website e.g. when a user clicks a specially crafted link to the
+affected script hosted on a trusted domain.
+
+Tested on: nginx/1.2.9
+           VPN OS 2.6 UTM Base/027R12-newvpn-3.53r
+           VPNServer/027R12-vpn-b3.74r
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2016-5376
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5376.php
+
+
+24.09.2016
+
+--
+
+
+GET /service.cgi?_service=get+session&_redirect=http://zeroscience.mk&_sleep=3 HTTP/1.1
