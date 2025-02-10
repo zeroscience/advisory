@@ -1,6 +1,6 @@
 # Zero Science Lab Security Advisory Repository
 
-Welcome to the Zero Science Lab Security Advisory Repository! This repository contains a collection of security advisories, proof-of-concepts (PoCs), exploit code, and related resources, organized by year and assigned unique `ZSL-YEAR-XXXX` identifiers. This repository is intended for security researchers, developers, and IT professionals to study, analyze, and improve security practices.
+Welcome to the Zero Science Lab Security Advisory Repository! This repository contains a collection of security advisories, vulnerabilities, proof-of-concepts (PoCs), exploit code, and related resources, organized by year and assigned unique `ZSL-YEAR-XXXX` identifiers. This repository is intended for security researchers, developers, and IT professionals to study, analyze, and improve security practices.
 
 ## Table of Contents
 1. [Introduction](#introduction)
