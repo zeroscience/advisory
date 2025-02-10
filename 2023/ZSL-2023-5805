@@ -1,0 +1,44 @@
+
+OctoberCMS v3.4.0 (Blog) Stored Cross-Site Scripting Vulnerabilities
+
+
+Vendor: October CMS
+Product web page: https://www.octobercms.com
+Affected version: 3.4.0
+
+Summary: OctoberCMS is a self-hosted content management system (CMS)
+based on the PHP programming language and Laravel web application framework.
+It supports MySQL, SQLite and PostgreSQL for the database back end and
+uses a flat file database for the front end structure. The October CMS
+covers a range of capabilities such as users, permissions, themes, and
+plugins, and is seen as a simpler alternative to WordPress.
+
+Desc: OctoberCMS suffers from stored cross-site scripting vulnerability
+when a user with the ability to a blog-creating feature that stores data
+persistently could perform a stored XSS attack against any other users
+visiting the blog page. This can lead to execute arbitrary HTML/JS code
+in a user's browser session in context of an affected site.
+
+Tested on: macOS Monterey 12.6.3
+           Docker 4.12.0 (85629)
+           PHP/8.1.6
+
+
+Vulnerability discovered by Nazli Soysal Kuran
+                            @zeroscience
+
+
+Advisory ID: ZSL-2023-5805
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2023-5805.php
+
+
+30.10.2023
+
+--
+
+
+Stored XSS (GlobalRecord[blog_name]):
+-------------------------------------
+
+Endpoint: POST /backend/tailor/globals/blog_config
+Payload: GlobalRecord%5Bblog_name%5D="</title><script>alert(1)</script>"
