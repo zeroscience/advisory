@@ -1,0 +1,57 @@
+
+Epic Games Fortnite 4.2-CL-4072250 Insecure File Permissions
+
+
+Vendor: Epic Games, Inc.
+Product web page: https://www.epicgames.com
+Affected version: 4.2-CL-4072250
+                  4.1-CL-4053532
+                  4.0-CL-4039451
+
+
+Summary: Fortnite is a co-op sandbox survival game developed by Epic
+Games and People Can Fly and published by Epic Games. The game was
+released as a paid-for early access title for Microsoft Windows, macOS,
+PlayStation 4 and Xbox One on July 25, 2017, with a full free-to-play
+release expected in 2018. The retail versions of the game were published
+by Gearbox Publishing, while online distribution of the PC versions is
+handled by Epic's launcher.
+
+Desc: Fortnite suffers from an elevation of privileges vulnerability which
+can be used by a simple authenticated user that can change the executable
+file with a binary of choice. The vulnerability exist due to the improper
+permissions, with the 'C' flag (Change) for 'Authenticated Users' group.
+
+Tested on: Microsoft Windows 10 Home
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2018-5469
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5469.php
+
+
+10.04.2018
+
+--
+
+
+E:\Program Files\Epic Games\Fortnite\FortniteGame>dir /b Binaries\Win64\*.exe
+FortniteClient-Win64-Shipping.exe
+FortniteClient-Win64-Shipping_BE.exe
+FortniteClient-Win64-Shipping_EAC.exe
+FortniteLauncher.exe
+
+E:\Program Files\Epic Games\Fortnite\FortniteGame>cacls Binaries
+E:\Program Files\Epic Games\Fortnite\FortniteGame\Binaries BUILTIN\Administrators:F
+                                                           BUILTIN\Administrators:(OI)(CI)(IO)F
+                                                           NT AUTHORITY\SYSTEM:F
+                                                           NT AUTHORITY\SYSTEM:(OI)(CI)(IO)F
+                                                           NT AUTHORITY\Authenticated Users:C
+                                                           NT AUTHORITY\Authenticated Users:(OI)(CI)(IO)C
+                                                           BUILTIN\Users:R
+                                                           BUILTIN\Users:(OI)(CI)(IO)(special access:)
+                                                                                     GENERIC_READ
+                                                                                     GENERIC_EXECUTE
