@@ -1,0 +1,238 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+
+<meta http-equiv="Pragma" content="Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate">
+
+<title>Broadband Satellite Browsing Test</title>
+
+<script language="JavaScript"> 
+var Teston = -1;
+var NumofItems=-1;
+var NumofBlanks=-1;
+var URLtoUse=""
+var StartDate;
+var EndDate;
+var LastTest=-1;
+var NumofIterations=1;
+var DontShowSpeedTestResults=1;
+var TroubleShootingUnderway=0
+var AvgPageLoadTime = 0;
+
+function sleep(delay) 
+{
+    var startTime = new Date();
+    var newTime = null;
+
+    do 
+    { 
+        newTime = new Date(); 
+    } while(newTime - startTime < delay);
+} 
+
+function Init()
+{
+    if(DontShowSpeedTestResults == 0)
+    {
+        document.getElementById("Heading").innerHTML="<p align=\"center\"><em><strong><font size=\"4\">Broadband Satellite Browsing Test</font></strong></em></p>";
+        document.getElementById("AvgCol").width=200;
+        document.getElementById("RetriesCol").width=100;
+        document.getElementById("AvgTimeColText").innerHTML="<b>Average Time (seconds)</b>";
+        document.getElementById("NumIterColText").innerHTML="<b># of Tests</b>";
+    }
+    else
+       document.getElementById("Heading").innerHTML="";
+}
+
+function AddURLtoList(AddValue)
+{
+    var outputit="";
+    var i=0;
+
+    if (AddValue!="")
+    {
+        for (var done=0;((document.getElementById("URLList"+i)!=null)&&(document.getElementById("URLList"+i).innerHTML!=""));i++)
+        {
+        }
+
+        if (AddValue.substr(0,7).toUpperCase()!='HTTP://')
+        {
+            AddValue= "http://" + AddValue.value;
+        }
+
+        outputit=AddValue;
+	
+        if (i>NumofItems)
+        {
+            document.getElementById("URLList").innerHTML=document.getElementById("URLList").innerHTML+ '<span id="URLList'+i+'">'+ outputit+ '<br></span>';	
+            if(DontShowSpeedTestResults == 0)
+            {
+                document.getElementById("URLAverage").innerHTML=document.getElementById("URLAverage").innerHTML+ '<span id="URLAverage'+i+'">'+ 0+ '<br></span>';	
+                document.getElementById("URLRetries").innerHTML=document.getElementById("URLRetries").innerHTML+ '<span id="URLRetries'+i+'">'+ 0+ '<br></span>';	
+            }
+            else
+            {    document.getElementById("URLAverage").innerHTML="";
+                 document.getElementById("URLRetries").innerHTML="";
+            }
+            NumofItems=i;
+        }
+        else
+        {
+            document.getElementById("URLList"+i).innerHTML= outputit+ '<br>';	
+            if(DontShowSpeedTestResults == 0)
+            {
+                document.getElementById("URLAverage"+i).innerHTML= 0+ '<br>';	
+                document.getElementById("URLRetries"+i).innerHTML= 0+ '<br>';
+            }
+            else
+            {
+                document.getElementById("URLAverage").innerHTML="";
+                document.getElementById("URLRetries").innerHTML="";
+            }
+        }
+	AddValue="";	
+    }
+}
+
+function StartTest()
+{
+    GetInfo.StartButton.disabled=true;
+    LastTest=Teston;
+
+    if (NumofItems>-1)
+    {
+        if (NumofIterations>0)
+        {
+            Teston++;
+
+            if(Teston>NumofItems)
+            {				
+                NumofIterations=NumofIterations-1;
+                Teston=-1;				
+            }
+            if (Teston>-1)
+            {
+                if (document.getElementById("URLList"+Teston).innerHTML!="")
+                {
+                    URLtoUse=document.getElementById("URLList"+Teston).innerHTML;
+                    NumofBlanks=-1;
+                    sleep(2000);
+                    DoTest();
+                }		
+            }
+            else
+            {
+                StartTest();
+            }
+        }
+        else
+        {
+            NumofIterations=1;
+            GetInfo.StartButton.disabled=false;
+            document.getElementById("Test").innerHTML=''+
+                '<table border="1" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111" id="AutoNumber2">'+
+                '  <tr>'+
+                '    <td  width="800" height="400" valign="top">'+
+                '<p align="center">&nbsp;</p><p align="center"><font color="#0000FF">The Test is Complete! </font></p><p align="center">&nbsp;</p><p align="center">&nbsp;</p><p align="center">If you would like to rerun the browsing test, click <b>Start Test</b>.</td>'+
+                '  </tr>'+
+                '</table>';
+
+             AvgPageLoadTime = AvgPageLoadTime / (NumofItems + 1);
+
+             if(TroubleShootingUnderway)
+             {
+                 if(AvgPageLoadTime <= 15)
+                     top.right_frame.location.href="/cgi/redirect_to_browsing_test_ok.html";
+                 else
+                     top.right_frame.location.href="/cgi/redirect_to_browsing_test_not_ok.html";
+             }
+             AvgPageLoadTime = 0;
+        }
+    }
+}
+function DoTest()
+{
+    var LengthofMiddlePart = URLtoUse.length-4;
+    StartDate = new Date();	
+
+    if(DontShowSpeedTestResults == 0)
+    {
+        document.getElementById("Test").innerHTML='<iframe onload = "EndTest();" src="'+ URLtoUse.substr(0,LengthofMiddlePart) +''+'" name="TestFrame" width="800" height="400"></iframe>';	
+    }
+    else
+    {    document.getElementById("Test").innerHTML='<iframe onload = "StartTest();" src="'+ URLtoUse.substr(0,LengthofMiddlePart) +''+'" name="TestFrame" width="800" height="400"></iframe>';	
+    }
+}
+
+	
+function EndTest()
+{
+    EndDate = new Date();
+	
+    var nr=   (parseFloat((document.getElementById("URLRetries"+Teston).innerHTML).substr(0,(document.getElementById("URLRetries"+Teston).innerHTML).length-4)));
+    var avg = (parseFloat((document.getElementById("URLAverage"+Teston).innerHTML).substr(0,(document.getElementById("URLAverage"+Teston).innerHTML).length-4)));
+    var diff = ((EndDate.getTime()-StartDate.getTime())/1000);
+
+    avg=(((avg*nr)+diff)/(nr+1));
+    avg = Math.round(avg*100)/100;
+
+    AvgPageLoadTime += diff;
+    document.getElementById("URLRetries"+Teston).innerHTML=(nr+1)+"<br>";
+    document.getElementById("URLAverage"+Teston).innerHTML=(avg)+"<br>";
+    StartTest();
+}
+</script>
+</head>
+
+<body onload="Init()">
+<span id="Heading"></span>
+
+<form name="GetInfo" action="http://TARGET/fs/dynaform/speedtest.html">
+<p></p><center>The Speed Test requires Firefox 1.0 or later or Internet Explorer 6.0 or later to run correctly</center><p></p>
+<p></p><center><br>Do not click on any other link or navigate away from this page while the test is in progress.</center><p></p>
+
+<p></p>
+<p></p>
+<center>
+<table border="1" cellpadding="2" style="border-collapse: collapse" bordercolor="#111111" id="AutoNumber1">
+  <tbody><tr>
+    <td align="center" width="200"><b>URL List</b></td>
+    <td align="center"><span id="AvgTimeColText"></span></td>
+    <td align="center"><span><span id="NumIterColText"></span></span></td>
+   </tr>
+   <tr>
+    <td align="left" width="200"><span id="URLList"></span></td>
+    <td id="AvgCol" align="center"><span id="URLAverage"></span></td>
+    <td id="RetriesCol" align="center"><span id="URLRetries"></span></td>
+  </tr>
+</tbody></table>
+
+<p>
+
+
+<input type="button" value="Start Test" name="StartButton" onclick="Teston = -1;StartTest();"></p>
+
+</center></form>
+<center>
+<table border="1" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111" id="AutoNumber2" height="319">
+  <tbody><tr>
+    <td width="800" height="18" bgcolor="#000000">
+    <p align="center"><b><font color="#FFFFFF">
+    <span>Test Frame</span></font></b></p></td>
+  </tr>
+  <tr>
+    <td width="800" height="400">
+    <p align="center"><span id="Test" src="">For Best Results, clear your 
+    Browser's cache before running this test.</span></p></td>
+  </tr>
+</tbody></table>
+
+</center>
+
+<script>
+</script>
+
+
+
+
+
+
+</body></html>
