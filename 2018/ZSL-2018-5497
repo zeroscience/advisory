@@ -1,0 +1,47 @@
+
+TP-Link TL-SC3130 1.6.18 Unauthenticated RTSP Stream Disclosure Vulnerability
+
+
+Vendor: TP-LINK Technologies Co., Ltd.
+Product web page: http://www.tp-link.com
+Affected version: 1.6.18P12_121101
+
+Summary: The TL-SC3130G surveillance camera is a versatile solution for
+your home and office monitoring, whose 54Mbps wireless connectivity enables
+you to deploy the camera where inaccessible previously by Ethernet connection
+such as ceiling and walls. This camera can be placed in your living room,
+office, or anywhere else you would like to keep an eye on things. After a
+hassle-free installation, you can view and control the camera from a Web
+browser, bundled software, or compatible cell phone. Besides basic monitoring
+tools such as motion detection and E-mail alerts which is motion triggered
+sending an alert when the camera detects movement, advanced features of
+high availability are also added, such as 2-way audio, dual streaming,
+and 3GPP compatibility, even the error detection tool 'Ping Watch Dog',
+making TL-SC3130G an excellent indoor surveillance solution.
+
+Desc: The TP-Link TL-SC3130 suffers from an unauthenticated and unauthorized
+live RTSP stream disclosure.
+
+Tested on: Boa/0.94.14rc21
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2018-5497
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5497.php
+
+CVE ID: CVE-2018-18428
+CVE URL: https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-18428
+
+
+16.10.2018
+
+--
+
+
+PoC:
+
+http://TARGET/jpg/image.jpg
+rtsp://TARGET:554/video.3gp
