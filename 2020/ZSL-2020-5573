@@ -1,0 +1,38 @@
+
+Plexus anblick Digital Signage Management 3.1.13 (pagina param) Open Redirect
+
+
+Vendor: Plexus
+Product web page: https://www.plexus.es
+                  https://www.plexus.es/wp-content/uploads/2020/06/PLEXUS_ANBLICK.pdf
+Affected version: 3.1.13
+
+Summary: Advanced multiplatform digital signage solution. Reproduction of
+multimedia content in a visual and impressive way. Adaptable to any use and
+to various types of screen or display.
+
+Desc: Input passed via the 'pagina' GET parameter in 'PantallaLogin' script
+is not properly verified before being used to redirect users. This can be
+exploited to redirect a user to an arbitrary website e.g. when a user clicks
+a specially crafted link to the affected script hosted on a trusted domain.
+
+Tested on: Apache Tomcat/6.0.20
+           Apache-Coyote/1.1
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2020-5573
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2020-5573.php
+
+
+13.06.2020
+
+--
+
+
+PoC:
+
+http://192.168.2.51:8080/ANBLICK/PantallaLogin?idioma=EN&pagina=https://www.zeroscience.mk
