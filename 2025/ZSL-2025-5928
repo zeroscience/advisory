@@ -1,0 +1,36 @@
+
+Ksenia Security Lares 4.0 Home Automation URL Redirection
+
+
+Vendor: Ksenia Security S.p.A.
+Product web page: https://www.kseniasecurity.com
+Affected version: Firmware version 1.6
+                  Webserver version 1.0.0.15
+
+Summary: Lares is a burglar alarm & home automation system that can
+be controlled by means of an ergo LCD keyboard, as well as remotely
+by telephone, and even via the Internet through a built-in WEB server.
+
+Desc: Input passed via the 'redirectPage' GET parameter in 'cmdOk.xml'
+script is not properly verified before being used to redirect users.
+This can be exploited to redirect an authenticating user to an arbitrary
+website e.g. when a user clicks a specially crafted link to the affected
+script hosted on a trusted domain.
+
+Tested on: Ksenia Lares Webserver
+
+
+Vulnerability discovered by Mencha `ShadeLock` Isajlovska
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5928
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5928.php
+
+
+03.07.2024
+
+--
+
+
+http://192.168.1.2/xml/cmd/cmdOk.xml?cmd=setMacro&pin=123456&macroId=2&redirectPage=//zeroscience.mk
