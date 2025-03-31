@@ -1,0 +1,34 @@
+
+Ksenia Security Lares 4.0 Home Automation Default Credentials
+
+
+Vendor: Ksenia Security S.p.A.
+Product web page: https://www.kseniasecurity.com
+Affected version: Firmware version 1.6
+                  Webserver version 1.0.0.15
+
+Summary: Lares is a burglar alarm & home automation system that can
+be controlled by means of an ergo LCD keyboard, as well as remotely
+by telephone, and even via the Internet through a built-in WEB server.
+
+Desc: Ksenia Lares uses a weak set of default administrative credentials
+that can be found and used to gain full control of the system.
+
+Tested on: Ksenia Lares Webserver
+
+
+Vulnerability discovered by Mencha `ShadeLock` Isajlovska
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5927
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5927.php
+
+
+03.07.2024
+
+--
+
+
+admin:lares
+PIN: 123456
