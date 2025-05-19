@@ -1,0 +1,113 @@
+
+ABB Cylon FLXeon 9.3.5 (uukl.js) Predictable Salt and Weak Hashing Algorithm
+
+
+Vendor: ABB Ltd.
+Product web page: https://www.global.abb                   
+Affected version: FLXeon Series (FBXi Series, FBTi Series, FBVi Series)
+                  CBX Series (FLX Series)
+                  CBT Series
+                  CBV Series
+                  Firmware: <=9.3.5
+
+Summary: BACnet® Smart Building Controllers. ABB's BACnet portfolio features a
+series of BACnet® IP and BACnet MS/TP field controllers for ASPECT® and INTEGRA™
+building management solutions. ABB BACnet controllers are designed for intelligent
+control of HVAC equipment such as central plant, boilers, chillers, cooling towers,
+heat pump systems, air handling units (constant volume, variable air volume, and
+multi-zone), rooftop units, electrical systems such as lighting control, variable
+frequency drives and metering.
+
+The FLXeon Controller Series uses BACnet/IP standards to deliver unprecedented
+connectivity and open integration for your building automation systems. It's scalable,
+and modular, allowing you to control a diverse range of HVAC functions.
+
+Desc: The ABB Cylon FLXeon BACnet controller's /api/uukl.js module implements password
+verification and update mechanisms using the insecure MD5 hash function alongside weak
+salt generation via Math.random(). This constitutes a cryptographic vulnerability where
+password hashes are susceptible to collision and brute-force attacks due to MD5's known
+weaknesses and the low entropy of the salt. Specifically, in the verify() and change()
+functions, passwords are hashed using MD5 with predictable, non-cryptographically secure
+salts, then stored in plaintext-accessible files. This undermines the integrity of the
+authentication process, enabling attackers with file system access or knowledge of the
+implementation to precompute hash values or mount dictionary attacks.
+
+Tested on: Linux Kernel 5.4.27
+           Linux Kernel 4.15.13
+           NodeJS/8.4.0
+           Express
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5936
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5936.php
+
+
+21.04.2024
+
+--
+
+
+$ cat project
+
+                 P   R   O   J   E   C   T
+
+                        .|
+                        | |
+                        |'|            ._____
+                ___    |  |            |.   |' .---"|
+        _    .-'   '-. |  |     .--'|  ||   | _|    |
+     .-'|  _.|  |    ||   '-__  |   |  |    ||      |
+     |' | |.    |    ||       | |   |  |    ||      |
+ ____|  '-'     '    ""       '-'   '-.'    '`      |____
+░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ 
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ 
+         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░
+
+
+$ sed -n '10,39p' api/uukl.js | awk '{print NR+2, $0}'
+
+10: function verify(passwd, defpwd = false) {
+11:     var pwdFileName;
+12:     if (!defpwd)
+13:         pwdFileName = pwdFile;
+14:     else
+15:         pwdFileName = defPwdFile;
+16:     const data = fs.readFileSync(pwdFileName, 'utf-8');
+17:     const split = data.toString().split(' ');
+18:     const salt = split[0];
+19:     const savedHash = split[1].trim();
+20:     const md5sum = crypto.createHash('md5');
+21:     md5sum.update(salt);
+22:     md5sum.update(passwd);
+23:     const hash = md5sum.digest('hex');
+24:     if (hash == savedHash) {
+25:         return true;
+26:     }
+27:     else {
+28:         Jrpc.doJrpc('cbxi', { method: 'uuklPwd', params: { action: 'fail' } }, (reply) => { });
+29:         return false;
+30:     }
+31: }
+32: function change(passwd) {
+33:     var md5sum = crypto.createHash('md5');
+34:     var salt = Math.floor(Math.random() * 100000).toString();
+35:     md5sum.update(salt);
+36:     md5sum.update(passwd);
+37:     var hash = md5sum.digest('hex');
+38:     fs.writeFileSync(pwdFile, salt + ' ' + hash);
+39: }
