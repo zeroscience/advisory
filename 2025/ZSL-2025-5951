@@ -1,0 +1,75 @@
+
+ABB Cylon Aspect Studio 3.08.03 Insecure Permissions
+
+
+Vendor: ABB Ltd.
+Product web page: https://www.global.abb
+Affected version: <=3.08.03
+
+Summary: ABB Cylon ASPECT Studio is a graphical programming tool and
+integrated development environment (IDE) for ABB Cylon ASPECT products.
+It's used to engineer comprehensive area control and graphical user interface
+(GUI) solutions, containing a library of logical and graphical widgets.
+It allows users to monitor and control facilities from anywhere, providing
+insights into building performance and enabling timely reactions to issues.
+
+Desc: The application suffers from an elevation of privileges vulnerability
+which can be used by a simple authenticated user that can change the executable
+file with a binary of choice. The vulnerability exist due to the improper
+permissions, with the 'M' flag (Modify) for 'Authenticated Users' group.
+
+Tested on: Microsoft Windows 10 Home (EN)
+           OpenJDK 64-Bit Server VM Temurin-21.0.6+7
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5951
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5951.php
+
+CVE ID: CVE-2024-13948
+CVE URL: https://www.cve.org/CVERecord/SearchResults?query=CVE-2024-13948
+
+
+21.04.2024
+
+--
+
+
+C:\> type project
+
+                 P   R   O   J   E   C   T
+
+                        .|
+                        | |
+                        |'|            ._____
+                ___    |  |            |.   |' .---"|
+        _    .-'   '-. |  |     .--'|  ||   | _|    |
+     .-'|  _.|  |    ||   '-__  |   |  |    ||      |
+     |' | |.    |    ||       | |   |  |    ||      |
+ ____|  '-'     '    ""       '-'   '-.'    '`      |____
+░▒▓███████▓▒░░▒▓███████▓▒░ ░▒▓██████▓▒░░▒▓█▓▒░▒▓███████▓▒░  
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░ 
+░▒▓███████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░                                                            
+         ░▒▓████████▓▒░▒▓██████▓▒░ ░▒▓██████▓▒░ 
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░░░░░░ 
+         ░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒▒▓███▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+         ░▒▓█▓▒░░░░░░░░▒▓██████▓▒░ ░▒▓██████▓▒░                                               
+                                                                                                               
+
+C:\Aspect\Aspect-Studio-3.08.03>icacls *.jar
+AspectStudioObf.jar BUILTIN\Administrators:(I)(F)
+                    NT AUTHORITY\SYSTEM:(I)(F)
+                    BUILTIN\Users:(I)(RX)
+                    NT AUTHORITY\Authenticated Users:(I)(M)
+
+Successfully processed 1 files; Failed processing 0 files
