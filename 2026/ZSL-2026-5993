@@ -1,0 +1,46 @@
+
+Lyrion Music Server 9.2.0 (search.*) Multiple Script Insertions
+
+
+Vendor: LMS Community
+Product web page: https://www.lyrion.org
+Affected version 9.2.0
+
+Summary: Lyrion Music Server (formerly Logitech Media Server, and
+often abbreviated as "LMS" ) is open-source software which can control
+and serve (stream) music to a wide range of physical and virtual audio
+players called Squeezeboxes. Lyrion Music Server can stream your local
+music collection, internet radio stations, and content from many streaming
+services (with and without subscriptions).
+
+Desc: Advanced-search parameters (search.*) are stuffed back into the
+page so the form keeps its values. Most fields apply | html, but several
+free-text fields do not, resulting in reflected XSS.
+
+Tested on: Windows 10 (64-bit) - EN
+           Lyrion Music Server (9.2.0 - 1779973211)
+           Perl/5.32.1
+           SQLite
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5993
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5993
+CVE ID: CVE-2026-50235
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2026-50235
+
+
+27.05.2026
+
+--
+
+
+http://localhost:9000/advanced_search.html?{PARAM}={XSS PAYLOAD}
+
+- search.comments_value={XSS PAYLOAD}
+- search.filesize={XSS PAYLOAD}
+- search.lyrics={XSS PAYLOAD}
+- search.url={XSS PAYLOAD}
