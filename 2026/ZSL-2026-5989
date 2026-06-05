@@ -1,0 +1,66 @@
+
+Lyrion Music Server 9.2.0 (server.log) Unauthenticated Stored XSS
+
+
+Vendor: LMS Community
+Product web page: https://www.lyrion.org
+Affected version 9.2.0
+
+Summary: Lyrion Music Server (formerly Logitech Media Server, and
+often abbreviated as "LMS" ) is open-source software which can control
+and serve (stream) music to a wide range of physical and virtual audio
+players called Squeezeboxes. Lyrion Music Server can stream your local
+music collection, internet radio stations, and content from many streaming
+services (with and without subscriptions).
+
+Desc: The log viewer reflects request parameters and raw log content into
+HTML with no escaping. Template Toolkit has no global auto-escaping so any
+[% var %] without an explicit | html filter is an injection point. The search,
+lines and path query parameters are reflected directly, and log lines are
+emitted as raw HTML. Any attacker-provided value that gets logged (a crafted
+URL, User-Agent, stream title, player name) becomes stored XSS.
+
+============================================================================
+/HTML/EN/log.html
+-------------------
+85:  <input type="text" name="search" id="search" value="[% search %]" ...>
+98:  <span><a href="/[% path %]?zip=1">[% "DOWNLOAD" | string %]</a></span>
+100: <input type="hidden" name="lines" id="lines" value="[% lines %]"></input>
+103: <pre>[% logLines %]</pre>
+
+
+/Slim/Web/Pages/Common.pm  (logFile)
+------------------------------------
+508:  my $search = $params->{search};
+...   $line = "<span style=\"color:red\">$line</span>" if ...;
+549:  return Slim::Web::HTTP::filltemplatefile("log.html", $params);
+============================================================================
+
+Tested on: Windows 10 (64-bit) - EN
+           Lyrion Music Server (9.2.0 - 1779973211)
+           Perl/5.32.1
+           SQLite
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5989
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5989
+CVE ID: CVE-2026-50231
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2026-50231
+
+
+27.05.2026
+
+--
+
+
+http://localhost:9000/imageproxy/file:////Zero%20Science%20Lab%20is%3Cscript%3Econfirm(%22Awesome!%22)%3C/script%3E
+
+Viewing log at http://localhost:9000/server.log:
+...
+...
+[26-05-29 14:32:44.5987] Slim::Web::ImageProxy::__ANON__ (376) Artwork resize for imageproxy/file:////Zero Science Lab is failed
+...
