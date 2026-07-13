@@ -1,0 +1,50 @@
+
+SIP Sustainable Irrigation Platform 5.x Path Traversal in Backup/Restore
+
+
+Vendor: Dan-in-CA
+Product web page: https://github.com/Dan-in-CA/SIP
+Affected version: 5.2.16
+
+Summary: SIP is a free Raspberry Pi based Python program for
+controlling irrigation systems (sprinkler, drip, hydroponic,
+etc). It uses web technology to provide an intuitive user
+interface (UI) in several languages. The UI can be accessed
+in your favorite browser on desktop, laptop, and mobile devices.
+SIP has also been used to control pumps, lights, and other Irrigation
+related equipment.
+
+Desc: The SIP Backup/Restore functionality suffers from a path
+traversal vulnerability. The keys in the JSON backup file which
+have been uploaded are not validated when they are used to generate
+file paths. An attacker with access to the restore feature can use
+the path traversal vulnerability to write JSON files outside the
+intended data directory. When the optional passphrase is not enabled
+(factory default) these actions are additionally available to any
+unauthenticated user, and where the passphrase is enabled it defaults
+to 'opendoor'.
+
+Tested on: Debian GNU/Linux 11 (bullseye) raspberrypi 6.1.21+ (armv6l/aarch64)
+           Python 3.9.2
+
+
+Vulnerability discovered by Anja Ivanovska
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5996
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5996
+
+
+24.06.2026
+
+--
+
+
+$ cat test_backup.json
+{
+  "__restorePoint": "test",
+  "../../test_restore": {
+    "proof": "path traversal works"
+  }
+}
