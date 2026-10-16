@@ -1,0 +1,54 @@
+
+
+Apache MINA Vysper 0.7 Unbounded XML Buffer Pre-Auth DoS
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://mina.apache.org
+Affected version: 0.7
+
+Summary: Apache Vysper is an XMPP (eXtensible Messaging and
+Presence Protocol) server, also known as Jabber, designed to
+run stand-alone or embedded in another application and work
+with any compliant XMPP client.
+
+Desc: Apache MINA Vysper is an XMPP server that suffers from a
+remote, unauthenticated denial-of-service vulnerability caused
+by an unbounded XML buffer in its nbxml parser. The XMLTokenizer
+accumulates incoming bytes into an auto-expanding buffer with no
+maximum token, stanza, or request size, resetting it only when a
+token's terminating delimiter is seen. A remote attacker can stream
+a single very large XML token and grow the server heap until the
+JVM throws OutOfMemoryError.
+
+The vector is reachable over TCP XMPP (default port 5222), by
+sending a stream header followed by an endless run of character
+data with no closing delimiter, and over BOSH / XMPP-over-HTTP
+(default port 8080), where the request decoder reads the entire
+HTTP request body into memory before parsing, so a single large
+HTTP POST is sufficient. Parsing runs on the first bytes received,
+before authentication, so no credentials are required, and because
+a single JVM serves all sessions the resulting OutOfMemoryError takes
+down the entire server for every connected user.
+
+Tested on: Microsoft Windows 10 (amd64)
+           Eclipse Temurin (Adoptium) OpenJDK 21.0.6 (64-bit)
+           nbxml 0.7
+           mina-core 2.0.21
+           slf4j-api 1.7.36
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-6022
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6022
+
+
+13.08.2026
+
+--
+
+
+$ head -c 3000000000 /dev/zero | curl -s -X POST -T - http://mina.vysper.sillysec.com:8080
