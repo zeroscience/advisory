@@ -1,0 +1,41 @@
+
+
+Apache Commons Digester 3.2 XXE Vulnerability
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://commons.apache.org/proper/commons-digester/
+Affected version: 3.2
+
+Summary: Apache Commons Digester is a Java library from the Apache Commons
+project that converts XML documents into trees of Java objects.
+
+Desc: Apache Commons Digester creates its SAX parser factory with no
+protections against document type definitions or external entities,
+and the default entity resolver resolves unregistered external entities,
+so any application that parses untrusted XML with Digester is exposed
+to local file disclosure, server-side request forgery, and entity-expansion
+denial of service. Commons libraries are designed to operate on trusted
+or application-validated input, so applications should not parse untrusted
+XML with Digester without hardening the parser factory.
+
+Tested on: Microsoft Windows 10 (x86_64)
+           Eclipse Temurin OpenJDK 21.0.6 (LTS)
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-6036
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6036
+
+
+13.08.2026
+
+--
+
+
+$ curl -s -X POST --data-binary @ze_xxe_payload.xml \
+> -H 'Content-Type: application/xml' \
+> http://TARGET/KALAKOTER
