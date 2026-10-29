@@ -1,0 +1,46 @@
+
+Apache DevLake 1.0.3 Unauthenticated SSRF
+
+
+Vendor: The Apache Software Foundation
+Product web page: https://devlake.apache.org
+Affected version: 1.0.3
+
+Summary: Apache DevLake is an open-source dev data platform that ingests,
+analyzes, and visualizes the fragmented data from DevOps tools to extract
+insights for engineering excellence, developer experience, and community
+growth. Apache DevLake is designed for developer teams looking to make
+better sense of their development process and to bring a more data-driven
+approach to their own practices. You can ask Apache DevLake many questions
+regarding your development process. Just connect and query.
+
+Desc: Apache DevLake exposes an unauthenticated data-source connection-test
+endpoint whose request body supplies the target "endpoint" URL, which the
+server then fetches with no authentication and no private-IP/metadata filtering
+(the optional ENDPOINT_CIDR_BLACKLIST is disabled by default and only matches
+literal IPs, so any hostname bypasses it). A remote attacker who can reach the
+API can therefore coerce the server into issuing HTTP/HTTPS requests to arbitrary
+internal hosts, read cloud-metadata and internal HTTP services, and port-scan
+the internal network. By default the upstream response body is reflected back
+in the error.
+
+Tested on: Nginx/1.29
+           MySQL/8.0.26
+
+
+Vulnerability discovered by Gjoko 'LiquidWorm' Krstic
+                            @zeroscience
+
+
+Advisory ID: ZSL-2026-6037
+Advisory URL: https://www.zeroscience.mk/#/advisories/ZSL-2026-6037
+
+
+29.10.2026
+
+--
+
+
+$ curl -sS -X POST "http://127.0.0.1:4000/api/plugins/github/test" \
+> -H 'Content-Type: application/json' \
+> --data '{"endpoint":"http://host.docker.internal:9999/","authMethod":"AccessToken"}'
